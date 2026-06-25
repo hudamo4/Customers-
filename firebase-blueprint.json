@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "user": {
+      "title": "User Profile",
+      "description": "User profile with personal information, loyalty points and membership tier.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "points": { "type": "integer" },
+        "membership": { "type": "string" },
+        "avatar": { "type": "string" }
+      },
+      "required": ["uid", "name", "phone", "city", "points", "membership"]
+    },
+    "shipment": {
+      "title": "Shipment Tracking",
+      "description": "Active shipment tracking with weight, items, type, and progress timeline.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "estimatedDelivery": { "type": "string" },
+        "expectedArrivalDate": { "type": "string", "description": "تاريخ الوصول المتوقع لتسهيل التخطيط للمستخدم" },
+        "weight": { "type": "string" },
+        "items": { "type": "string" },
+        "service": { "type": "string" },
+        "origin": { "type": "string" },
+        "currentLocation": { "type": "string" },
+        "journey": { "type": "array" }
+      },
+      "required": ["userId", "trackingNumber", "status", "estimatedDelivery", "weight", "items", "service", "origin", "currentLocation", "journey"]
+    },
+    "invoice": {
+      "title": "Invoice Details",
+      "description": "A purchase invoice record from supported stores.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "store": { "type": "string" },
+        "order_id": { "type": "string" },
+        "date": { "type": "string" },
+        "amount": { "type": "string" },
+        "status": { "type": "string", "enum": ["Paid", "Pending"] }
+      },
+      "required": ["userId", "invoiceId", "store", "order_id", "date", "amount", "status"]
+    },
+    "notification": {
+      "title": "Notification Detail",
+      "description": "App alert or dynamic offer for the user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "notificationId": { "type": "string" },
+        "type": { "type": "string", "enum": ["shipment", "offer", "invoice"] },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "time": { "type": "string" },
+        "image": { "type": "string" },
+        "icon": { "type": "string" },
+        "action": { "type": "string" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["userId", "notificationId", "type", "title", "content", "time", "read"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "user",
+      "description": "User profiles containing name, phone, city, loyalty points."
+    },
+    "/shipments/{shipmentId}": {
+      "schema": "shipment",
+      "description": "Shipments tracked by the user."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "invoice",
+      "description": "Invoices belonging to the user."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "notification",
+      "description": "User notifications and special offers."
+    }
+  }
+}

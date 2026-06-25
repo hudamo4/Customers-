@@ -1,0 +1,6 @@
+{
+  "name": "IRAMO STORE",
+  "description": "مركز التتبع وإدارة الفواتير لمتجر إيرامو مع نظام الولاء والتنبيهات المباشرة المرتبطة بقاعدة بيانات حقيقية",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

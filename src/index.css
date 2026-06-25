@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Noto Sans Arabic", sans-serif;
+  --font-serif: "Be Vietnam Pro", sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #fff8f6;
+  direction: rtl;
+  min-height: 100vh;
+}
+
+/* Animations & Keyframes */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+
+.float-animation {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbars */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Tactile Scaling & Micro-Interaction Feedback for Buttons and Clickables */
+button,
+[role="button"],
+.cursor-pointer {
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.15s ease, opacity 0.15s ease, box-shadow 0.2s ease;
+}
+
+button:active,
+[role="button"]:active,
+.cursor-pointer:active {
+  transform: scale(0.95);
+}
+
