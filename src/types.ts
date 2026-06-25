@@ -42,6 +42,12 @@ export interface Invoice {
   amount: string;
   status: 'Paid' | 'Pending';
   shippingStatus?: string;
+  itemsList?: { name: string; quantity: string; price: string; image?: string }[];
+  customerName?: string;
+  customerPhone?: string;
+  customerCity?: string;
+  shippingCost?: string;
+  itemsTotal?: string;
 }
 
 export interface NotificationDetail {
@@ -57,3 +63,64 @@ export interface NotificationDetail {
   action?: string;
   read: boolean;
 }
+
+export interface StoreCustomization {
+  id: string;
+  name: string;
+  rate: string;
+  duration: string;
+  details: string;
+  image?: string;
+}
+
+export interface PresetProductCustomization {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  category: string;
+}
+
+export interface AppCustomizations {
+  heroImageUrl: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  showStores: boolean;
+  showLoyalty: boolean;
+  showBanners: boolean;
+  announcementText: string;
+  showAnnouncement: boolean;
+  supportedStores: StoreCustomization[];
+  presetProducts: PresetProductCustomization[];
+  rates: {
+    baghdad: string;
+    babel: string;
+    provinces: string;
+  };
+  bankInfo: {
+    superkey: string;
+    holderName: string;
+    zainCash: string;
+    zainHolder: string;
+  };
+  socials: {
+    whatsapp: string;
+    instagram: string;
+    facebook: string;
+    website: string;
+  };
+  // Full-app customizable fields (banners, mascots, and texts)
+  homeFooterMascotUrl?: string;
+  homeFooterMascotQuote?: string;
+  homeFooterMascotAuthor?: string;
+  trackingBatootMascotUrl?: string;
+  trackingBatootQuote?: string;
+  trackingSupportAgentUrl?: string;
+  trackingSupportTitle?: string;
+  trackingSupportQuote?: string;
+  invoiceInstructionText?: string;
+  notificationsBannerUrl?: string;
+  notificationsWelcomeText?: string;
+  iraqRates?: { province: string; rate: string; }[];
+}
+

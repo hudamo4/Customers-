@@ -114,7 +114,7 @@ const AVAILABLE_STORES = [
 ];
 
 export default function ProfileView() {
-  const { profile, shipments, updateProfile, redeemPoints, setActiveTab } = useApp();
+  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations } = useApp();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [name, setName] = useState<string>(profile?.name || '');
   const [phone, setPhone] = useState<string>(profile?.phone || '');
@@ -123,6 +123,12 @@ export default function ProfileView() {
   const [saving, setSaving] = useState<boolean>(false);
   const [showAvailableSites, setShowAvailableSites] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Hidden Manager Portal states
+  const [avatarClicks, setAvatarClicks] = useState<number>(0);
+  const [showPasscodeModal, setShowPasscodeModal] = useState<boolean>(false);
+  const [passcodeInput, setPasscodeInput] = useState<string>('');
+  const [passcodeError, setPasscodeError] = useState<boolean>(false);
 
   // Wallet & Mastercard payment options states
   const [showPaymentMethods, setShowPaymentMethods] = useState<boolean>(false);
@@ -228,7 +234,18 @@ export default function ProfileView() {
       {/* Profile Header Block */}
       <section className="flex flex-col items-center text-center py-4">
         <div className="relative mb-4">
-          <div className="w-32 h-32 rounded-full p-1.5 bg-gradient-to-tr from-pink-700 to-pink-200 shadow-xl relative">
+          <div 
+            onClick={() => {
+              const clicks = avatarClicks + 1;
+              setAvatarClicks(clicks);
+              if (clicks >= 5) {
+                setAvatarClicks(0);
+                setShowPasscodeModal(true);
+              }
+            }}
+            title="إعدادات النظام"
+            className="w-32 h-32 rounded-full p-1.5 bg-gradient-to-tr from-pink-700 to-pink-200 shadow-xl relative cursor-pointer active:scale-95 transition-transform select-none"
+          >
             <div className="w-full h-full rounded-full overflow-hidden border-[6px] border-white ring-1 ring-pink-100 bg-white flex items-center justify-center">
               <img
                 alt="Profile Avatar"
@@ -244,9 +261,11 @@ export default function ProfileView() {
         </div>
 
         <h2 className="text-xl font-extrabold text-gray-800">{profile?.name || 'أمنة العراق'}</h2>
-        <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-pink-100 text-pink-800 rounded-full mt-2 shadow-sm">
-          <Star className="w-4 h-4 fill-pink-800 text-pink-800" />
-          <span className="text-[11px] font-bold tracking-wide">{profile?.membership || 'عضوية ذهبية'}</span>
+        <div className="flex flex-col items-center gap-2 mt-2">
+          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-pink-100 text-pink-800 rounded-full shadow-sm">
+            <Star className="w-4 h-4 fill-pink-800 text-pink-800" />
+            <span className="text-[11px] font-bold tracking-wide">{profile?.membership || 'عضوية ذهبية'}</span>
+          </div>
         </div>
       </section>
 
@@ -348,14 +367,31 @@ export default function ProfileView() {
               />
             </div>
             <div>
-              <label className="text-gray-400 text-xs block mb-1 font-semibold">المدينة والمنطقة</label>
-              <input
-                type="text"
+              <label className="text-gray-400 text-xs block mb-1 font-semibold">المحافظة</label>
+              <select
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs focus:outline-none focus:border-pink-500"
-              />
+                className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs focus:outline-none focus:border-pink-500 font-bold"
+              >
+                <option value="" disabled>اختر المحافظة...</option>
+                {(customizations?.iraqRates || []).length > 0 ? (
+                  customizations.iraqRates.map((item, index) => (
+                    <option key={index} value={item.province}>{item.province}</option>
+                  ))
+                ) : (
+                  <>
+                    <option value="بغداد">بغداد</option>
+                    <option value="بابل">بابل</option>
+                    <option value="البصرة">البصرة</option>
+                    <option value="نينوى">نينوى</option>
+                    <option value="أربيل">أربيل</option>
+                    <option value="النجف">النجف</option>
+                    <option value="كربلاء">كربلاء</option>
+                    <option value="ذي قار">ذي قار</option>
+                  </>
+                )}
+              </select>
             </div>
             <button
               type="submit"
@@ -457,15 +493,15 @@ export default function ProfileView() {
             <img
               alt="Hadoosha & Batoot"
               className="w-full h-full object-contain"
-              src="https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw"
+              src={customizations?.homeFooterMascotUrl || "https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw"}
               referrerPolicy="no-referrer"
             />
           </div>
-          <div className="flex-1 space-y-1">
+          <div className="flex-1 space-y-1 text-right">
             <p className="text-pink-700 italic leading-relaxed text-xs font-semibold">
-              "عزيزتي {profile?.name || 'الأنيقة'}، جمالك يبدأ من اهتمامك بنفسك. نحن هنا دائماً لنوفر لكِ الأفضل في شحن وتسوق متميز!"
+              {(customizations?.homeFooterMascotQuote || "عزيزتي {name}، جمالك يبدأ من اهتمامك بنفسك. نحن هنا دائماً لنوفر لكِ الأفضل في شحن وتسوق متميز!").replace("{name}", profile?.name || 'الأنيقة')}
             </p>
-            <p className="font-bold text-pink-800 text-xs">— هدوشة وبطوط</p>
+            <p className="font-bold text-pink-800 text-xs">— {customizations?.homeFooterMascotAuthor || 'هدوشة وبطوط'}</p>
           </div>
         </div>
         <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-pink-100/20 rounded-full blur-2xl"></div>
@@ -510,53 +546,66 @@ export default function ProfileView() {
 
             {/* Stores List */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">
-              {AVAILABLE_STORES.filter(store => 
-                store.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                store.enName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                store.category.toLowerCase().includes(searchQuery.toLowerCase())
-              ).map((store, idx) => (
-                <div 
-                  key={idx}
-                  className="bg-white border border-pink-100/40 rounded-2xl p-4.5 shadow-sm hover:shadow transition-shadow space-y-3 text-right"
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="text-right">
-                      <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-pink-50 text-pink-700 mb-1">
-                        {store.category}
-                      </span>
-                      <h4 className="font-extrabold text-sm text-gray-800">{store.name}</h4>
-                      <p className="text-[10px] font-bold text-gray-400 tracking-wide text-left">{store.enName}</p>
+              {(() => {
+                const activeAvailableStores = (customizations?.supportedStores && customizations.supportedStores.length > 0)
+                  ? customizations.supportedStores.map(st => ({
+                      name: st.name,
+                      enName: st.name,
+                      category: 'أقسام إيرامو الرسمية 🛍️',
+                      rate: st.rate,
+                      duration: st.duration,
+                      description: st.details
+                    }))
+                  : AVAILABLE_STORES;
+
+                const filtered = activeAvailableStores.filter(store => 
+                  store.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                  store.enName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  store.category.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p className="text-xs text-gray-400 font-bold">عذراً، لم نجد نتائج لـ "{searchQuery}"</p>
+                      <p className="text-[10px] text-gray-400 mt-1">تأكدي من كتابة الاسم بشكل صحيح أو تصفحي القائمة الكاملة.</p>
                     </div>
-                    <div className="text-left">
-                      <span className="inline-block px-3 py-1 rounded-lg text-[10px] font-black bg-pink-50 text-pink-800 border border-pink-100/30">
-                        {store.rate}
+                  );
+                }
+
+                return filtered.map((store, idx) => (
+                  <div 
+                    key={idx}
+                    className="bg-white border border-pink-100/40 rounded-2xl p-4.5 shadow-sm hover:shadow transition-shadow space-y-3 text-right"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="text-right">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-pink-50 text-pink-700 mb-1">
+                          {store.category}
+                        </span>
+                        <h4 className="font-extrabold text-sm text-gray-800">{store.name}</h4>
+                        {store.enName && store.enName !== store.name && <p className="text-[10px] font-bold text-gray-400 tracking-wide text-left">{store.enName}</p>}
+                      </div>
+                      <div className="text-left">
+                        <span className="inline-block px-3 py-1 rounded-lg text-[10px] font-black bg-pink-50 text-pink-800 border border-pink-100/30">
+                          {store.rate}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-gray-500 leading-relaxed font-semibold">
+                      {store.description}
+                    </p>
+
+                    <div className="pt-2 border-t border-pink-50/50 flex justify-between items-center text-[10px] text-gray-400">
+                      <span className="flex items-center gap-1 font-bold text-pink-700 bg-pink-50/30 px-2 py-0.5 rounded-md">
+                        ⏱️ مدة الوصول: {store.duration}
                       </span>
+                      <span className="text-emerald-600 font-extrabold">● جاهز للشحن</span>
                     </div>
                   </div>
-
-                  <p className="text-xs text-gray-500 leading-relaxed font-semibold">
-                    {store.description}
-                  </p>
-
-                  <div className="pt-2 border-t border-pink-50/50 flex justify-between items-center text-[10px] text-gray-400">
-                    <span className="flex items-center gap-1 font-bold text-pink-700 bg-pink-50/30 px-2 py-0.5 rounded-md">
-                      ⏱️ مدة الوصول: {store.duration}
-                    </span>
-                    <span className="text-emerald-600 font-extrabold">● جاهز للشحن</span>
-                  </div>
-                </div>
-              ))}
-
-              {AVAILABLE_STORES.filter(store => 
-                store.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                store.enName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                store.category.toLowerCase().includes(searchQuery.toLowerCase())
-              ).length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-xs text-gray-400 font-bold">عذراً، لم نجد نتائج لـ "{searchQuery}"</p>
-                  <p className="text-[10px] text-gray-400 mt-1">تأكدي من كتابة الاسم بشكل صحيح أو تصفحي القائمة الكاملة.</p>
-                </div>
-              )}
+                ));
+              })()}
             </div>
 
             {/* Sticky Footer Info */}
@@ -705,6 +754,71 @@ export default function ProfileView() {
           </div>
         </div>
       )}
+
+      {/* Passcode Modal for Manager Portal Access */}
+      {showPasscodeModal && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl text-center space-y-4 border border-pink-100">
+            <div className="w-12 h-12 bg-pink-100 text-pink-700 rounded-full flex items-center justify-center mx-auto">
+              <Lock className="w-6 h-6 animate-pulse" />
+            </div>
+            
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">بوابة المديرة هدى السلطاني 👑</h4>
+              <p className="text-[10px] text-gray-400 mt-1 leading-relaxed font-bold">
+                يرجى إدخال رمز المرور السري الخاص بكِ للولوج إلى لوحة إدارة متجر إيرامو والتحكم بالكامل.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <input 
+                type="password"
+                placeholder="رمز المرور السري"
+                value={passcodeInput}
+                onChange={(e) => {
+                  setPasscodeInput(e.target.value);
+                  setPasscodeError(false);
+                }}
+                className={`w-full bg-gray-50 border ${passcodeError ? 'border-red-300 ring-1 ring-red-100' : 'border-pink-100'} text-center text-sm font-bold tracking-widest py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all`}
+                autoFocus
+              />
+              {passcodeError && (
+                <p className="text-[10px] text-red-600 font-bold animate-pulse">
+                  ❌ رمز المرور غير صحيح!
+                </p>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button 
+                onClick={() => {
+                  if (passcodeInput === '9988' || passcodeInput === 'huda44' || passcodeInput === 'huda2026') {
+                    localStorage.setItem('iramo_app_mode', 'manager');
+                    window.location.reload();
+                  } else {
+                    setPasscodeError(true);
+                    setPasscodeInput('');
+                  }
+                }}
+                className="flex-1 bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white text-xs font-black py-2.5 rounded-xl active:scale-95 transition-all cursor-pointer"
+              >
+                تأكيد الدخول
+              </button>
+              <button 
+                onClick={() => {
+                  setShowPasscodeModal(false);
+                  setPasscodeInput('');
+                  setPasscodeError(false);
+                }}
+                className="flex-1 bg-gray-100 text-gray-500 text-xs font-black py-2.5 rounded-xl active:scale-95 transition-all cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

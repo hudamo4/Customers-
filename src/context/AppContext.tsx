@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc } from 'firebase/firestore';
 import { db, setupAnonymousUser, seedInitialDataIfEmpty } from '../lib/firebase';
-import { UserProfile, Shipment, Invoice, NotificationDetail } from '../types';
+import { UserProfile, Shipment, Invoice, NotificationDetail, AppCustomizations } from '../types';
 
 export type TabType = 'dashboard' | 'tracking' | 'invoices' | 'profile' | 'notifications';
 
@@ -12,6 +12,7 @@ interface AppContextType {
   shipments: Shipment[];
   invoices: Invoice[];
   notifications: NotificationDetail[];
+  customizations: AppCustomizations;
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
   selectedShipmentId: string | null;
@@ -24,6 +25,9 @@ interface AppContextType {
   addNotification: (notif: Omit<NotificationDetail, 'id' | 'userId'>) => Promise<void>;
   updateShipmentStatus: (shipmentId: string, newStatus: string) => Promise<void>;
   payInvoice: (invoiceId: string) => Promise<void>;
+  addInvoice: (invoice: Invoice) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
+  updateCustomizations: (cust: Partial<AppCustomizations>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -75,7 +79,7 @@ const DEFAULT_NOTIFICATIONS: NotificationDetail[] = [
     userId: 'local_user',
     notificationId: 'notif_1',
     type: 'shipment',
-    title: 'تحديث شحنتك',
+    title: 'تحدث شحنتك',
     content: 'طرودكِ الأنيقة IRA-99201-XQ في طريقها إليكِ الآن!',
     time: 'الآن',
     icon: 'Package',
@@ -117,6 +121,197 @@ const DEFAULT_NOTIFICATIONS: NotificationDetail[] = [
   }
 ];
 
+export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
+  heroImageUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs',
+  heroTitle: 'مرحباً، {name}!',
+  heroSubtitle: 'أهلاً بكِ في عالم حدوشة وبطوط',
+  showStores: true,
+  showLoyalty: true,
+  showBanners: true,
+  announcementText: '🌟 أهلاً بكِ في إيرامو ستور! الشحن الأسرع والتوصيل الأرقى في العراق 💖',
+  showAnnouncement: true,
+  supportedStores: [
+    {
+      id: 'store_1',
+      name: 'Shein الامارات',
+      rate: '12,000 د.ع / كغم',
+      duration: '7 - 10 أيام شحن جوي سريع',
+      details: 'أحدث صيحات الموضة والجمال بوزن دقيق وتوصيل سريع من مستودعنا في دبي مباشرة إلى العراق.'
+    },
+    {
+      id: 'store_2',
+      name: 'Shein الكويت',
+      rate: '5,000 د.ع / كغم',
+      duration: '7 - 10 أيام شحن جوي سريع',
+      details: 'أحدث صيحات الموضة والجمال بأفضل سعر شحن على الإطلاق وتوصيل سريع من مستودعنا في الكويت.'
+    },
+    {
+      id: 'store_3',
+      name: 'AliExpress',
+      rate: '12,500 د.ع / كغم',
+      duration: '10 - 15 يوم شحن جوي',
+      details: 'التسوق الأسهل بأسعار المصنع وشحن آمن عبر مطار بغداد الدولي.'
+    },
+    {
+      id: 'store_4',
+      name: 'Temu',
+      rate: '13,000 د.ع / كغم',
+      duration: '8 - 12 يوم شحن جوي',
+      details: 'تسوقي بذكاء ووفرة من تيمو مع تجميع فوري للطرود وشحن جوي سريع وآمن.'
+    },
+    {
+      id: 'store_5',
+      name: 'Taobao',
+      rate: '16,500 د.ع / كغم',
+      duration: '12 - 18 يوم شحن جوي',
+      details: 'تسوقي من أكبر المتاجر الصينية للملابس والمنتجات المنزلية بأسعارها الحقيقية مع شحن وزن حقيقي.'
+    },
+    {
+      id: 'store_6',
+      name: '1688',
+      rate: '16,500 د.ع / كغم',
+      duration: '14 - 20 يوم شحن جوي',
+      details: 'تسوق الجملة المباشر من المصانع الصينية بأسعار خيالية. مثالي للمشاريع والطلبات الكبيرة.'
+    },
+    {
+      id: 'store_7',
+      name: 'iHerb',
+      rate: '15,000 د.ع / كغم',
+      duration: '6 - 9 أيام شحن جوي سريع',
+      details: 'المكملات الغذائية، الفيتامينات، ومستحضرات العناية الطبيعية الموثوقة مباشرة إلى العراق.'
+    },
+    {
+      id: 'store_8',
+      name: 'سيفورا',
+      rate: '16,000 د.ع / كغم',
+      duration: '7 - 10 أيام شحن جوي',
+      details: 'الماركات والمستحضرات الأصلية الفاخرة من سيفورا العالمية للتجميل لضمان الجودة والأصالة بنسبة 100%.'
+    },
+    {
+      id: 'store_9',
+      name: 'بوتيكات',
+      rate: '13,500 د.ع / كغم',
+      duration: '5 - 8 أيام شحن سريع',
+      details: 'أكبر متجر تجميل وعطور في الكويت والخليج العربي. تسوقي اختيارات المشاهير لتصلكِ لباب البيت.'
+    },
+    {
+      id: 'store_10',
+      name: 'تريندول تركيا والكويت',
+      rate: '11,000 د.ع / كغم',
+      duration: '8 - 12 يوم جوي',
+      details: 'أرقى الماركات التركية والملابس الأنيقة من تريندول مباشرة من مستودعات تركيا والكويت للعراق.'
+    },
+    {
+      id: 'store_11',
+      name: 'YesStyle',
+      rate: '15,500 د.ع / كغم',
+      duration: '9 - 14 يوم شحن جوي',
+      details: 'أفضل منتجات الجمال الكورية واليابانية ومنتجات العناية الفائقة من أشهر الماركات الآسيوية.'
+    },
+    {
+      id: 'store_12',
+      name: 'K-Secret',
+      rate: '15,500 د.ع / كغم',
+      duration: '7 - 11 يوم شحن سريع',
+      details: 'منتجات العناية بالبشرة الكورية الأكثر شهرة وتأثيراً للتفتيح والنضارة الفائقة مباشرة من كوريا.'
+    }
+  ],
+  presetProducts: [
+    {
+      id: 'prod_1',
+      name: 'أحمر شفاه كريمي مطفأ - هدى بيوتي',
+      price: 15000,
+      image: 'https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&q=80&w=200',
+      category: 'مكياج'
+    },
+    {
+      id: 'prod_2',
+      name: 'عطر ديور جادور - أو دو بارفيوم فاخر',
+      price: 45000,
+      image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&q=80&w=200',
+      category: 'عطور'
+    },
+    {
+      id: 'prod_3',
+      name: 'حقيبة يد شانيل كلاسيكية جلد فاخر',
+      price: 35000,
+      image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=200',
+      category: 'حقائب'
+    },
+    {
+      id: 'prod_4',
+      name: 'سيروم حمض الهيالورونيك المرطب - لوريال',
+      price: 22000,
+      image: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=200',
+      category: 'عناية بالبشرة'
+    },
+    {
+      id: 'prod_5',
+      name: 'لوحة ظلال عيون مطفية ولامعة - ريفلوشن',
+      price: 20000,
+      image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=200',
+      category: 'مكياج'
+    },
+    {
+      id: 'prod_6',
+      name: 'فستان تركي طويل مخملي راقي',
+      price: 65000,
+      image: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=200',
+      category: 'ملابس'
+    }
+  ],
+  rates: {
+    baghdad: '5,000 د.ع',
+    babel: '3,000 د.ع',
+    provinces: '5,000 د.ع'
+  },
+  iraqRates: [
+    { province: 'بغداد', rate: '5,000 د.ع' },
+    { province: 'بابل', rate: '3,000 د.ع' },
+    { province: 'البصرة', rate: '5,000 د.ع' },
+    { province: 'نينوى', rate: '5,000 د.ع' },
+    { province: 'أربيل', rate: '5,000 د.ع' },
+    { province: 'النجف', rate: '5,000 د.ع' },
+    { province: 'كربلاء', rate: '5,000 د.ع' },
+    { province: 'ذي قار', rate: '5,000 د.ع' },
+    { province: 'القادسية', rate: '5,000 د.ع' },
+    { province: 'ميسان', rate: '5,000 د.ع' },
+    { province: 'المثنى', rate: '5,000 د.ع' },
+    { province: 'الأنبار', rate: '5,000 د.ع' },
+    { province: 'صلاح الدين', rate: '5,000 د.ع' },
+    { province: 'ديالى', rate: '5,000 د.ع' },
+    { province: 'كركوك', rate: '5,000 د.ع' },
+    { province: 'السليمانية', rate: '5,000 د.ع' },
+    { province: 'دهوك', rate: '5,000 د.ع' },
+    { province: 'واسط', rate: '5,000 د.ع' },
+    { province: 'حلبجة', rate: '5,000 د.ع' }
+  ],
+  bankInfo: {
+    superkey: 'SK-9988-7766-5544',
+    holderName: 'شركة إيرامو للتجارة المحدودة',
+    zainCash: '0780 000 0000',
+    zainHolder: 'IRAMO STORE ADMIN'
+  },
+  socials: {
+    whatsapp: '+964 780 123 4567',
+    instagram: '@iramo_store',
+    facebook: 'fb.com/iramostore',
+    website: 'www.iramostore.com'
+  },
+  homeFooterMascotUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw',
+  homeFooterMascotQuote: '"عزيزتي {name}، جمالك يبدأ من اهتمامك بنفسك. نحن هنا دائماً لنوفر لكِ الأفضل في شحن وتسوق متميز!"',
+  homeFooterMascotAuthor: 'هدوشة وبطوط',
+  trackingBatootMascotUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8',
+  trackingBatootQuote: '"أتابع تحركاتها عبر الخط الجوي لحظة بلحظة لضمان وصولها الفاخر والأنيق إليكِ!"',
+  trackingSupportAgentUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU',
+  trackingSupportTitle: 'هل تحتاجين لمساعدة؟',
+  trackingSupportQuote: 'خبراء الدعم اللوجستي متواجدون لمساعدتكِ طوال اليوم في تتبع الشحنات وحساب دقيق للأوزان.',
+  invoiceInstructionText: 'الرجاء تحويل مبلغ الفاتورة الإجمالي إلى حساب المحفظة المعتمدة أدناه وإرفاق صورة التحويل أو إشعار الدفع لتأكيد الشحن الفوري.',
+  notificationsBannerUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=800',
+  notificationsWelcomeText: 'مركز الإشعارات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨'
+};
+
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   
@@ -139,6 +334,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [notifications, setNotifications] = useState<NotificationDetail[]>(() => {
     const saved = localStorage.getItem('iramo_notifications');
     return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATIONS;
+  });
+
+  const [customizations, setCustomizations] = useState<AppCustomizations>(() => {
+    const saved = localStorage.getItem('iramo_customizations');
+    return saved ? JSON.parse(saved) : DEFAULT_CUSTOMIZATIONS;
   });
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -171,12 +371,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('iramo_notifications', JSON.stringify(sorted));
   };
 
+  const saveCustomizationsLocally = (c: AppCustomizations) => {
+    setCustomizations(c);
+    localStorage.setItem('iramo_customizations', JSON.stringify(c));
+  };
+
   useEffect(() => {
     // Initialize defaults into local storage if completely fresh
     if (!localStorage.getItem('iramo_profile')) saveProfileLocally(DEFAULT_PROFILE);
     if (!localStorage.getItem('iramo_shipments')) saveShipmentsLocally(DEFAULT_SHIPMENTS);
     if (!localStorage.getItem('iramo_invoices')) saveInvoicesLocally(DEFAULT_INVOICES);
     if (!localStorage.getItem('iramo_notifications')) saveNotificationsLocally(DEFAULT_NOTIFICATIONS);
+    if (!localStorage.getItem('iramo_customizations')) saveCustomizationsLocally(DEFAULT_CUSTOMIZATIONS);
 
     // Setup auth and attempt real-time DB sync
     setupAnonymousUser(async (currentUser) => {
@@ -251,11 +457,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn("Firestore Notifications real-time sync failed (falling back to offline local state):", error.message);
       });
 
+      // Real-time listener for customizations
+      const custDocRef = doc(db, 'settings', 'customizations');
+      const unsubscribeCustomizations = onSnapshot(custDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          saveCustomizationsLocally(docSnap.data() as AppCustomizations);
+        } else {
+          // Seed the document if it doesn't exist
+          setDoc(custDocRef, DEFAULT_CUSTOMIZATIONS).catch(e => {
+            console.warn("Could not seed customizations to firestore:", e);
+          });
+        }
+      }, (error) => {
+        console.warn("Firestore Customizations real-time sync failed (falling back to offline local state):", error.message);
+      });
+
       return () => {
         unsubscribeUser();
         unsubscribeShipments();
         unsubscribeInvoices();
         unsubscribeNotifications();
+        unsubscribeCustomizations();
       };
     });
   }, []);
@@ -435,6 +657,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addInvoice = async (invoice: Invoice) => {
+    const newInvoice = {
+      ...invoice,
+      userId: user?.uid || 'local_user',
+    };
+    const updated = [newInvoice, ...invoices];
+    saveInvoicesLocally(updated);
+
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'invoices'), newInvoice);
+    } catch (error) {
+      console.warn("Firestore Invoice creation skipped (saved locally only):", error);
+    }
+  };
+
+  const deleteInvoice = async (id: string) => {
+    const updated = invoices.filter(inv => inv.id !== id && inv.invoiceId !== id);
+    saveInvoicesLocally(updated);
+
+    if (!user) return;
+    try {
+      const docRef = doc(db, 'invoices', id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.warn("Firestore Invoice deletion skipped (saved locally only):", error);
+    }
+  };
+
+  const updateCustomizations = async (cust: Partial<AppCustomizations>) => {
+    const updated = { ...customizations, ...cust };
+    saveCustomizationsLocally(updated);
+
+    try {
+      const custDocRef = doc(db, 'settings', 'customizations');
+      await setDoc(custDocRef, updated, { merge: true });
+    } catch (error) {
+      console.warn("Firestore Customizations update skipped (saved locally only):", error);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -443,6 +706,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         shipments,
         invoices,
         notifications,
+        customizations,
         activeTab,
         setActiveTab,
         selectedShipmentId,
@@ -455,6 +719,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addNotification,
         updateShipmentStatus,
         payInvoice,
+        addInvoice,
+        deleteInvoice,
+        updateCustomizations,
       }}
     >
       {children}

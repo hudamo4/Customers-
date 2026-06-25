@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Bell, Truck, Receipt, Gift, Sparkles, CheckSquare, Compass, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function NotificationsView() {
-  const { notifications, markAllNotificationsAsRead, setActiveTab, shipments, updateShipmentStatus, addNotification } = useApp();
+  const { notifications, markAllNotificationsAsRead, setActiveTab, shipments, updateShipmentStatus, addNotification, customizations } = useApp();
   const [activeFilter, setActiveFilter] = useState<'all' | 'shipment' | 'invoice' | 'offer'>('all');
   const [alertToast, setAlertToast] = useState({ show: false, title: '', message: '' });
 
@@ -34,13 +34,13 @@ export default function NotificationsView() {
           <img
             alt="Batoot"
             className="w-full h-full object-cover"
-            src="https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"
+            src={customizations?.notificationsBannerUrl || "https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"}
             referrerPolicy="no-referrer"
           />
         </div>
-        <div className="relative z-10 space-y-0.5">
-          <h2 className="font-extrabold text-base text-pink-700">بطوط يرحب بكِ!</h2>
-          <p className="text-xs font-semibold text-gray-500 italic">"Stay Fabulous with IRAMO"</p>
+        <div className="relative z-10 space-y-0.5 text-right flex-1">
+          <h2 className="font-extrabold text-sm text-pink-700 leading-tight">{customizations?.notificationsWelcomeText || "مركز التنبيهات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨"}</h2>
+          <p className="text-[10px] font-bold text-gray-400 italic">"Stay Fabulous with IRAMO"</p>
         </div>
         <div className="mr-auto text-pink-200">
           <Sparkles className="w-6 h-6" />

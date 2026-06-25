@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Copy, MapPin, Plane, GitMerge, Box, ShoppingBag, Share2, Compass, MessageCircle, Info, CheckCircle, Package, Calculator, Plus, Minus, Scale, Search, Trash2, AlertTriangle, Wifi, WifiOff, Database } from 'lucide-react';
 
 export default function TrackingView() {
-  const { shipments, selectedShipmentId, setSelectedShipmentId, deleteShipment } = useApp();
+  const { shipments, selectedShipmentId, setSelectedShipmentId, deleteShipment, customizations } = useApp();
   const [copied, setCopied] = useState<boolean>(false);
   const [supportMessage, setSupportMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -35,23 +35,39 @@ export default function TrackingView() {
   // Find selected shipment, or fallback to first filtered, or null
   const activeShipment = filteredShipments.find(s => s.id === selectedShipmentId) || filteredShipments[0] || null;
 
-  const CALCULATOR_STORES = [
-    { name: 'Shein الامارات', rate: 12000 },
-    { name: 'Shein الكويت', rate: 5000 },
-    { name: 'Aliexpress', rate: 12500 },
-    { name: 'Temu', rate: 13000 },
-    { name: 'Taobao', rate: 16500 },
-    { name: '1688', rate: 16500 },
-    { name: 'Iherb', rate: 15000 },
-    { name: 'سيفورا', rate: 16000 },
-    { name: 'بوتيكات', rate: 13500 },
-    { name: 'تريندول تركيا والكويت', rate: 11000 },
-    { name: 'Yesstyle', rate: 15500 },
-    { name: 'K-secret', rate: 15500 }
-  ];
+  const CALCULATOR_STORES = React.useMemo(() => {
+    if (customizations?.supportedStores && customizations.supportedStores.length > 0) {
+      return customizations.supportedStores.map(st => {
+        const cleanRate = st.rate.replace(/,/g, '');
+        const rateMatch = cleanRate.match(/\d+/);
+        const parsedRate = rateMatch ? parseInt(rateMatch[0]) : 12000;
+        return { name: st.name, rate: parsedRate };
+      });
+    }
+    return [
+      { name: 'Shein الامارات', rate: 12000 },
+      { name: 'Shein الكويت', rate: 5000 },
+      { name: 'Aliexpress', rate: 12500 },
+      { name: 'Temu', rate: 13000 },
+      { name: 'Taobao', rate: 16500 },
+      { name: '1688', rate: 16500 },
+      { name: 'Iherb', rate: 15000 },
+      { name: 'سيفورا', rate: 16000 },
+      { name: 'بوتيكات', rate: 13500 },
+      { name: 'تريندول تركيا والكويت', rate: 11000 },
+      { name: 'Yesstyle', rate: 15500 },
+      { name: 'K-secret', rate: 15500 }
+    ];
+  }, [customizations]);
 
-  const [calcStore, setCalcStore] = useState<string>(CALCULATOR_STORES[0].name);
+  const [calcStore, setCalcStore] = useState<string>('');
   const [calcWeight, setCalcWeight] = useState<number>(1.0);
+
+  React.useEffect(() => {
+    if (CALCULATOR_STORES.length > 0 && !calcStore) {
+      setCalcStore(CALCULATOR_STORES[0].name);
+    }
+  }, [CALCULATOR_STORES, calcStore]);
 
   // Sync state with selected shipment
   React.useEffect(() => {
@@ -303,7 +319,7 @@ export default function TrackingView() {
               <img
                 alt="Batoot Mascot"
                 className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg ring-8 ring-pink-50/50 float-animation"
-                src="https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"
+                src={customizations?.trackingBatootMascotUrl || "https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"}
                 referrerPolicy="no-referrer"
               />
               <div className="absolute -bottom-1 -right-1 bg-pink-700 text-white p-2 rounded-xl shadow-md">
@@ -317,7 +333,7 @@ export default function TrackingView() {
               </div>
               <h4 className="font-extrabold text-sm text-gray-800">موقع الشحنة الحالي:</h4>
               <p className="text-xs text-pink-700 font-bold">{activeShipment.currentLocation}</p>
-              <p className="text-[11px] text-gray-500 italic">"أتابع تحركاتها عبر الخط الجوي لحظة بلحظة لضمان وصولها الفاخر والأنيق إليكِ!"</p>
+              <p className="text-[11px] text-gray-500 italic">{customizations?.trackingBatootQuote || '"أتابع تحركاتها عبر الخط الجوي لحظة بلحظة لضمان وصولها الفاخر والأنيق إليكِ!"'}</p>
             </div>
           </div>
         </div>
@@ -517,15 +533,15 @@ export default function TrackingView() {
             <div className="relative z-10 flex flex-col items-center">
               <div className="w-16 h-16 bg-white p-1 rounded-full mb-4 shadow-md border-2 border-pink-200 overflow-hidden shrink-0">
                 <img
-                  alt="Hadoosha Support"
+                  alt="Support Agent Mascot"
                   className="w-full h-full rounded-full object-cover"
-                  src="https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU"
+                  src={customizations?.trackingSupportAgentUrl || "https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU"}
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <h4 className="font-bold text-gray-800 mb-1 text-base">هل تحتاجين لمساعدة؟</h4>
+              <h4 className="font-bold text-gray-800 mb-1 text-base">{customizations?.trackingSupportTitle || 'هل تحتاجين لمساعدة؟'}</h4>
               <p className="text-gray-500 text-xs mb-6 px-4 leading-relaxed">
-                خبراء الدعم اللوجستي متواجدون لمساعدتكِ طوال اليوم في تتبع الشحنات وحساب دقيق للأوزان.
+                {customizations?.trackingSupportQuote || 'خبراء الدعم اللوجستي متواجدون لمساعدتكِ طوال اليوم في تتبع الشحنات وحساب دقيق للأوزان.'}
               </p>
 
               {supportMessage && (

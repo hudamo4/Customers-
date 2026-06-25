@@ -5,10 +5,19 @@ import TrackingView from './components/TrackingView';
 import InvoiceView from './components/InvoiceView';
 import ProfileView from './components/ProfileView';
 import NotificationsView from './components/NotificationsView';
-import { Home, Truck, Receipt, User, Bell, ChevronRight, Menu, Loader2 } from 'lucide-react';
+import ManagerPortal from './components/manager/ManagerPortal';
+import { Home, Truck, Receipt, User, Bell, ChevronRight, Menu, Loader2, ArrowRightLeft } from 'lucide-react';
 
 function AppContent() {
   const { activeTab, setActiveTab, notifications, profile, loading } = useApp();
+  const [appMode, setAppMode] = React.useState<'customer' | 'manager'>(() => {
+    return (localStorage.getItem('iramo_app_mode') as 'customer' | 'manager') || 'customer';
+  });
+
+  const handleSwitchMode = (mode: 'customer' | 'manager') => {
+    setAppMode(mode);
+    localStorage.setItem('iramo_app_mode', mode);
+  };
 
   // Count unread notifications
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -56,6 +65,13 @@ function AppContent() {
     );
   }
 
+  // Render Manager Portal if mode is manager
+  if (appMode === 'manager') {
+    return (
+      <ManagerPortal onSwitchToCustomerMode={() => handleSwitchMode('customer')} />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#fff8f6] text-gray-800 pb-12 select-none">
       {/* Dynamic Header */}
@@ -69,11 +85,13 @@ function AppContent() {
               <ChevronRight className="w-6 h-6" />
             </button>
           ) : (
-            <div className="w-10 h-10 flex items-center justify-center text-pink-700">
-              <Menu className="w-5 h-5" />
+            <div className="flex items-center gap-1.5 px-3 py-1.5 text-pink-700 font-extrabold text-sm select-none">
+              <span>إيرامو ستور 🛍️</span>
             </div>
           )}
-          <h1 className="font-bold text-base text-pink-700 tracking-tight">{getHeaderTitle()}</h1>
+          {activeTab !== 'dashboard' && (
+            <h1 className="font-bold text-base text-pink-700 tracking-tight">{getHeaderTitle()}</h1>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
