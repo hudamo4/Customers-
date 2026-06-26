@@ -174,9 +174,31 @@ export default function DashboardView() {
       <div className="bg-white/95 backdrop-blur-xl border border-pink-100 p-6 rounded-3xl shadow-sm">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-green-100 text-green-800 mb-2">
-              {activeShipment ? activeShipment.status : 'لا يوجد شحنات نشطة'}
-            </span>
+            {activeShipment ? (() => {
+              const s = activeShipment.status.toLowerCase();
+              let bg = 'bg-pink-50 text-pink-800 border-pink-100/80';
+              let dot = 'bg-pink-500';
+              if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid')) {
+                bg = 'bg-emerald-50 text-emerald-800 border-emerald-200/80';
+                dot = 'bg-emerald-500';
+              } else if (s.includes('طريق') || s.includes('مندوب') || s.includes('توصيل') || s.includes('شحن')) {
+                bg = 'bg-amber-50 text-amber-800 border-amber-200/80';
+                dot = 'bg-amber-500 animate-pulse';
+              } else if (s.includes('مطار') || s.includes('جمارك') || s.includes('بغداد') || s.includes('ترانزيت')) {
+                bg = 'bg-sky-50 text-sky-800 border-sky-200/80';
+                dot = 'bg-sky-500';
+              }
+              return (
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black border ${bg} mb-2`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+                  <span>{activeShipment.status}</span>
+                </span>
+              );
+            })() : (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500 mb-2">
+                لا يوجد شحنات نشطة
+              </span>
+            )}
             <h3 className="text-lg font-bold text-gray-800">
               {activeShipment ? `شحنة #${activeShipment.trackingNumber}` : 'ابدئي تتبع طردك الآن'}
             </h3>
