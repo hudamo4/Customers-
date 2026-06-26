@@ -40,6 +40,49 @@ export default function ManagerShipments() {
   // Delete Confirmation State
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+  // Colored status styles helper
+  const getStatusStyles = (status: string) => {
+    const s = (status || '').toLowerCase();
+    
+    // Completed / Delivered (Green)
+    if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid')) {
+      return {
+        bg: 'bg-emerald-50 text-emerald-800',
+        border: 'border-emerald-200/80',
+        dot: 'bg-emerald-500',
+        label: 'مكتمل ✓'
+      };
+    }
+    
+    // In delivery / courier / transit (Yellow/Amber)
+    if (s.includes('طريق') || s.includes('مندوب') || s.includes('توصيل') || s.includes('شحن')) {
+      return {
+        bg: 'bg-amber-50 text-amber-800',
+        border: 'border-amber-200/80',
+        dot: 'bg-amber-500 animate-pulse',
+        label: 'قيد التوصيل 🚚'
+      };
+    }
+    
+    // Customs / Airport (Blue)
+    if (s.includes('مطار') || s.includes('جمارك') || s.includes('بغداد') || s.includes('ترانزيت')) {
+      return {
+        bg: 'bg-sky-50 text-sky-800',
+        border: 'border-sky-200/80',
+        dot: 'bg-sky-500',
+        label: 'في مطار بغداد ✈️'
+      };
+    }
+    
+    // Received / Origin / Processing (Pink / Rose)
+    return {
+      bg: 'bg-pink-50 text-pink-800',
+      border: 'border-pink-100/80',
+      dot: 'bg-pink-500',
+      label: 'قيد المعالجة 📦'
+    };
+  };
+
   // Handle adding shipment
   const handleCreateShipment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -192,9 +235,15 @@ export default function ManagerShipments() {
               </div>
 
               {/* Status display */}
-              <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-100/50 px-2.5 py-1 rounded-full font-black">
-                {ship.status}
-              </span>
+              {(() => {
+                const styles = getStatusStyles(ship.status);
+                return (
+                  <span className={`text-[10px] ${styles.bg} ${styles.border} border px-2.5 py-1 rounded-full font-black flex items-center gap-1.5 shadow-sm`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${styles.dot}`} />
+                    <span>{ship.status}</span>
+                  </span>
+                );
+              })()}
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-xs pt-2 border-t border-gray-50">

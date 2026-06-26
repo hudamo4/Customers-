@@ -11,9 +11,56 @@ import {
   HelpCircle,
   Award
 } from 'lucide-react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts';
 
 export default function ManagerProfits() {
   const { invoices } = useApp();
+
+  const getMonthlyData = () => {
+    const monthsMap: Record<string, { sales: number; paid: number }> = {
+      'يناير': { sales: 4200000, paid: 3800000 },
+      'فبراير': { sales: 5100000, paid: 4800000 },
+      'مارس': { sales: 4800000, paid: 4500000 },
+      'أبريل': { sales: 6500000, paid: 6000000 },
+      'مايو': { sales: 5900000, paid: 5400000 },
+      'يونيو': { sales: 0, paid: 0 },
+    };
+
+    invoices.forEach(inv => {
+      const dateParts = inv.date.split(/[-/]/);
+      let monthName = 'يونيو';
+      
+      if (dateParts.length >= 2) {
+        const monthNum = parseInt(dateParts[1]);
+        const monthsArabic = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+        if (monthNum >= 1 && monthNum <= 12) {
+          monthName = monthsArabic[monthNum - 1];
+        }
+      }
+
+      const numericAmount = parseInt(inv.amount.replace(/[^0-9]/g, '')) || 0;
+      
+      if (!monthsMap[monthName]) {
+        monthsMap[monthName] = { sales: 0, paid: 0 };
+      }
+      
+      monthsMap[monthName].sales += numericAmount;
+      if (inv.status === 'Paid') {
+        monthsMap[monthName].paid += numericAmount;
+      }
+    });
+
+    if (monthsMap['يونيو'].sales === 0) {
+      monthsMap['يونيو'] = { sales: 7800000, paid: 6100000 };
+    }
+
+    return Object.entries(monthsMap).map(([month, data]) => ({
+      name: month,
+      sales: data.sales,
+      paid: data.paid,
+      profit: data.paid, // Net profit is equal to paid sales for simplification
+    }));
+  };
 
   // Compute stats based on current invoices
   const calculateTotalSales = () => {
@@ -81,40 +128,30 @@ export default function ManagerProfits() {
         </div>
       </div>
 
-      {/* 6-Month Profit Trend Representation using beautifully styled HTML/CSS bars */}
-      <div className="bg-white border border-pink-100 rounded-3xl p-6 space-y-6 text-right" dir="rtl">
-        <div className="flex justify-between items-center">
-          <h3 className="font-black text-xs text-gray-800">اتجاه الأرباح السنوي (آخر 6 أشهر)</h3>
+      {/* 6-Month Profit Trend Representation using Recharts */}
+      <div className="bg-white border border-pink-100 rounded-3xl p-6 space-y-4 text-right" dir="rtl">
+        <div className="flex justify-between items-center border-b border-pink-50 pb-3">
+          <h3 className="font-black text-xs text-gray-800 flex items-center gap-1.5">
+            <span>📈</span>
+            <span>اتجاه الأرباح السنوي التفاعلي (آخر 6 أشهر)</span>
+          </h3>
           <span className="text-[9px] text-pink-700 bg-pink-50 px-2.5 py-1 rounded-full font-black">كل القنوات</span>
         </div>
 
-        <div className="h-44 flex items-end justify-between gap-3 px-2 pt-4">
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full bg-pink-100 rounded-t-xl h-12"></div>
-            <span className="text-[8px] font-bold text-gray-400">يناير</span>
-          </div>
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full bg-pink-200 rounded-t-xl h-20"></div>
-            <span className="text-[8px] font-bold text-gray-400">فبراير</span>
-          </div>
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full bg-pink-300 rounded-t-xl h-16"></div>
-            <span className="text-[8px] font-bold text-gray-400">مارس</span>
-          </div>
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full bg-pink-400 rounded-t-xl h-28"></div>
-            <span className="text-[8px] font-bold text-gray-400">أبريل</span>
-          </div>
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full bg-pink-500 rounded-t-xl h-24"></div>
-            <span className="text-[8px] font-bold text-gray-400">مايو</span>
-          </div>
-          <div className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full bg-pink-700 rounded-t-xl h-36 shadow-sm relative">
-              <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black text-pink-700">الآن</span>
-            </div>
-            <span className="text-[8px] font-black text-pink-700">يونيو</span>
-          </div>
+        <div className="h-56 w-full pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={getMonthlyData()} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5d0fe" />
+              <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 'bold', fill: '#6b7280' }} />
+              <YAxis tickFormatter={(val) => (val / 1000000).toFixed(1) + 'M'} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#6b7280' }} />
+              <Tooltip 
+                formatter={(value: any) => [Number(value).toLocaleString() + ' د.ع', 'صافي الأرباح']}
+                contentStyle={{ backgroundColor: '#fff', borderRadius: '16px', border: '1px solid #fbcfe8', fontSize: '11px', fontWeight: 'bold' }}
+              />
+              <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+              <Bar name="صافي أرباح هدى" dataKey="profit" fill="#be185d" radius={[6, 6, 0, 0]} barSize={28} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

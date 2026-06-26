@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Bell, Truck, Receipt, Gift, Sparkles, CheckSquare, Compass, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function NotificationsView() {
-  const { notifications, markAllNotificationsAsRead, setActiveTab, shipments, updateShipmentStatus, addNotification, customizations } = useApp();
+  const { notifications, markAllNotificationsAsRead, markNotificationAsRead, setActiveTab, shipments, updateShipmentStatus, addNotification, customizations } = useApp();
   const [activeFilter, setActiveFilter] = useState<'all' | 'shipment' | 'invoice' | 'offer'>('all');
   const [alertToast, setAlertToast] = useState({ show: false, title: '', message: '' });
 
@@ -22,6 +22,12 @@ export default function NotificationsView() {
         return <Gift className="w-6 h-6 text-pink-700" />;
       default:
         return <Bell className="w-6 h-6 text-pink-700" />;
+    }
+  };
+
+  const handleNotificationClick = (notif: any) => {
+    if (!notif.read && notif.id) {
+      markNotificationAsRead(notif.id);
     }
   };
 
@@ -174,7 +180,8 @@ export default function NotificationsView() {
         {filteredNotifications.map((notif) => (
           <div
             key={notif.id}
-            className={`bg-white/95 p-5 rounded-[2rem] border transition-all hover:border-pink-200 shadow-sm relative overflow-hidden ${
+            onClick={() => handleNotificationClick(notif)}
+            className={`bg-white/95 p-5 rounded-[2rem] border transition-all hover:border-pink-200 shadow-sm relative overflow-hidden cursor-pointer ${
               !notif.read ? 'border-pink-300 ring-2 ring-pink-50/20' : 'border-pink-50/50'
             }`}
           >
@@ -213,7 +220,8 @@ export default function NotificationsView() {
                 </p>
                 {notif.action && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation(); // prevent clicking notification to mark as read here again
                       if (notif.type === 'shipment') setActiveTab('tracking');
                       if (notif.type === 'invoice') setActiveTab('invoices');
                       if (notif.type === 'offer') setActiveTab('profile');

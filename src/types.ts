@@ -48,6 +48,9 @@ export interface Invoice {
   customerCity?: string;
   shippingCost?: string;
   itemsTotal?: string;
+  rating?: number;
+  ratingComment?: string;
+  ratingDate?: string;
 }
 
 export interface NotificationDetail {
@@ -122,5 +125,8 @@ export interface AppCustomizations {
   notificationsBannerUrl?: string;
   notificationsWelcomeText?: string;
   iraqRates?: { province: string; rate: string; }[];
+  invoiceHadooshaImageUrl?: string;
+  mastercardExpiry?: string;
+  mastercardCvv?: string;
 }
 

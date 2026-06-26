@@ -1,10 +1,39 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Award, Package, Receipt, ShoppingBag, ArrowLeft, ArrowRight, AppWindow, ShoppingCart, Globe, Sparkles, ChevronRight } from 'lucide-react';
+import { 
+  Award, 
+  Package, 
+  Receipt, 
+  ShoppingBag, 
+  ArrowLeft, 
+  ArrowRight, 
+  AppWindow, 
+  ShoppingCart, 
+  Globe, 
+  Sparkles, 
+  ChevronRight, 
+  Calculator, 
+  MessageSquare, 
+  Search, 
+  Share2, 
+  Minus, 
+  Plus, 
+  Compass, 
+  Truck
+} from 'lucide-react';
 
 export default function DashboardView() {
   const { profile, shipments, invoices, setActiveTab, setSelectedShipmentId, customizations } = useApp();
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
+
+  // Calculator states
+  const [calcStoreId, setCalcStoreId] = useState<string>('');
+  const [calcProvince, setCalcProvince] = useState<string>('بغداد');
+  const [calcWeight, setCalcWeight] = useState<number>(1.0);
+
+  // Preset Showcase states
+  const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
+  const [presetSearch, setPresetSearch] = useState<string>('');
 
   // Take the first shipment as the featured active shipment
   const activeShipment = shipments.length > 0 ? shipments[0] : null;
@@ -29,13 +58,75 @@ export default function DashboardView() {
     ? customizations.heroTitle.replace('{name}', profile?.name || '')
     : `مرحباً، ${profile?.name || ''}!`;
 
+  // Calculator Helper functions
+  const parseRate = (rateStr?: string): number => {
+    if (!rateStr) return 0;
+    const num = rateStr.replace(/,/g, '').match(/\d+/);
+    return num ? parseInt(num[0]) : 0;
+  };
+
+  const iraqRatesList = customizations.iraqRates && customizations.iraqRates.length > 0
+    ? customizations.iraqRates
+    : [
+        { province: 'بغداد', rate: '5,000 د.ع' },
+        { province: 'بابل', rate: '3,000 د.ع' },
+        { province: 'البصرة', rate: '5,000 د.ع' },
+        { province: 'نينوى', rate: '5,000 د.ع' },
+        { province: 'أربيل', rate: '5,000 د.ع' },
+        { province: 'النجف', rate: '5,000 د.ع' },
+        { province: 'كربلاء', rate: '5,000 د.ع' },
+        { province: 'ذي قار', rate: '5,000 د.ع' },
+        { province: 'القادسية', rate: '5,000 د.ع' },
+        { province: 'ميسان', rate: '5,000 د.ع' },
+        { province: 'المثنى', rate: '5,000 د.ع' },
+        { province: 'الأنبار', rate: '5,000 د.ع' },
+        { province: 'صلاح الدين', rate: '5,000 د.ع' },
+        { province: 'ديالى', rate: '5,000 د.ع' },
+        { province: 'كركوك', rate: '5,000 د.ع' },
+        { province: 'السليمانية', rate: '5,000 د.ع' },
+        { province: 'دهوك', rate: '5,000 د.ع' },
+        { province: 'واسط', rate: '5,000 د.ع' },
+        { province: 'حلبجة', rate: '5,000 د.ع' }
+      ];
+
+  const defaultStoreId = activeStores[0]?.id || '';
+  const currentStoreId = calcStoreId || defaultStoreId;
+  const selectedStoreObj = activeStores.find(s => s.id === currentStoreId) || activeStores[0];
+
+  const selectedProvinceObj = iraqRatesList.find(p => p.province === calcProvince) || iraqRatesList[0];
+  const storePricePerKg = parseRate(selectedStoreObj?.rate);
+  const deliveryCost = parseRate(selectedProvinceObj?.rate);
+  const totalCost = (storePricePerKg * calcWeight) + deliveryCost;
+
+  // Contact / WhatsApp Helper
+  const getWhatsAppLink = (message: string) => {
+    const rawNum = customizations.socials?.whatsapp || '+964 780 123 4567';
+    const cleanNum = rawNum.replace(/\s+/g, '').replace('+', '');
+    return `https://wa.me/${cleanNum}?text=${encodeURIComponent(message)}`;
+  };
+
+  const handleCalcShare = () => {
+    const msg = `مرحباً حدوشة وبطوط ✨\nأود الاستفسار عن تكلفة شحن طرد بوزن (${calcWeight.toFixed(1)} كغم) من متجر (${selectedStoreObj?.name || 'غير محدد'}) وتوصيله إلى محافظة (${calcProvince}).\nالوزن: ${calcWeight.toFixed(1)} كغم\nسعر شحن المتجر: ${selectedStoreObj?.rate || '0'} لكل كغم\nسعر توصيل المحافظة: ${selectedProvinceObj?.rate || '0'}\nالتكلفة الإجمالية المقدرة: ${totalCost.toLocaleString()} د.ع 💖`;
+    window.open(getWhatsAppLink(msg), '_blank');
+  };
+
+  // Filter Preset Products
+  const presetProducts = customizations.presetProducts || [];
+  const presetCategories = ['الكل', ...Array.from(new Set(presetProducts.map(p => p.category)))];
+
+  const filteredPresets = presetProducts.filter(p => {
+    const matchesCategory = selectedCategory === 'الكل' || p.category === selectedCategory;
+    const matchesSearch = p.name.toLowerCase().includes(presetSearch.toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
   return (
     <div className="space-y-6 pb-12 animate-fade-in" id="dashboard-view" dir="rtl">
       
       {/* Announcement Bar */}
       {customizations.showAnnouncement && customizations.announcementText && (
-        <div className="bg-pink-100/50 border border-pink-200/40 text-pink-800 text-xs py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-black shadow-sm text-center">
-          <Sparkles className="w-4 h-4 animate-spin text-pink-600 shrink-0" />
+        <div className="bg-pink-100/50 border border-pink-200/40 text-pink-800 text-xs py-3 px-4 rounded-2xl flex items-center justify-center gap-2 font-black shadow-sm text-center animate-pulse">
+          <Sparkles className="w-4 h-4 text-pink-600 shrink-0" />
           <span>{customizations.announcementText}</span>
         </div>
       )}
@@ -192,8 +283,210 @@ export default function DashboardView() {
         </section>
       )}
 
+      {/* Interactive Shipping Cost Calculator */}
+      <section className="bg-white border border-pink-100 rounded-3xl p-6 shadow-xs space-y-5 text-right">
+        <div className="flex items-center gap-2 border-b border-pink-50 pb-3">
+          <div className="p-2 bg-pink-50 rounded-xl text-pink-700">
+            <Calculator className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-black text-sm text-gray-800">حاسبة تكلفة الشحن والوزن التقريبية ⚖️</h3>
+            <p className="text-[10px] text-gray-400 font-semibold">احسبي سعر طرودك وتوصيلها فوراً وبشفافية تامة</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {/* Select Store */}
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 mb-1.5">اختارِي متجر/قسم الشحن</label>
+            <select
+              value={currentStoreId}
+              onChange={(e) => setCalcStoreId(e.target.value)}
+              className="w-full bg-pink-50/40 border border-pink-100/50 focus:outline-none focus:border-pink-300 text-xs px-3.5 py-2.5 rounded-xl font-bold"
+            >
+              {activeStores.map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.name} ({st.rate})
+                </option>
+              ))}
+              {activeStores.length === 0 && (
+                <option value="">لا يوجد متاجر مسجلة</option>
+              )}
+            </select>
+          </div>
+
+          {/* Grid: Province & Weight */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Province Selection */}
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 mb-1.5">محافظة التوصيل</label>
+              <select
+                value={calcProvince}
+                onChange={(e) => setCalcProvince(e.target.value)}
+                className="w-full bg-pink-50/40 border border-pink-100/50 focus:outline-none focus:border-pink-300 text-xs px-3.5 py-2.5 rounded-xl font-bold"
+              >
+                {iraqRatesList.map((rateObj) => (
+                  <option key={rateObj.province} value={rateObj.province}>
+                    {rateObj.province} ({rateObj.rate})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Weight Counter */}
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 mb-1.5">الوزن التقديري (كغم)</label>
+              <div className="flex items-center bg-pink-50/40 border border-pink-100/50 rounded-xl overflow-hidden h-10">
+                <button
+                  type="button"
+                  onClick={() => setCalcWeight(prev => Math.max(0.1, parseFloat((prev - 0.5).toFixed(1))))}
+                  className="w-10 h-full flex items-center justify-center text-pink-700 hover:bg-pink-100/50 font-bold text-sm cursor-pointer"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.1"
+                  value={calcWeight}
+                  onChange={(e) => setCalcWeight(Math.max(0.1, parseFloat(parseFloat(e.target.value).toFixed(1)) || 1.0))}
+                  className="flex-1 w-full text-center bg-transparent focus:outline-none text-xs font-black text-gray-800"
+                />
+                <button
+                  type="button"
+                  onClick={() => setCalcWeight(prev => parseFloat((prev + 0.5).toFixed(1)))}
+                  className="w-10 h-full flex items-center justify-center text-pink-700 hover:bg-pink-100/50 font-bold text-sm cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Receipt Cost Breakdown card */}
+          <div className="bg-gradient-to-br from-pink-50/30 to-pink-50/80 border border-pink-100 p-4 rounded-2xl space-y-2 text-xs">
+            <div className="flex justify-between items-center text-gray-600">
+              <span className="font-semibold">تكلفة الشحن الدولي ({calcWeight.toFixed(1)} كغم × {selectedStoreObj?.name || 'القسم'}):</span>
+              <span className="font-bold text-gray-800">{(storePricePerKg * calcWeight).toLocaleString()} د.ع</span>
+            </div>
+            <div className="flex justify-between items-center text-gray-600">
+              <span className="font-semibold">تكلفة التوصيل الداخلي ({calcProvince}):</span>
+              <span className="font-bold text-gray-800">{deliveryCost.toLocaleString()} د.ع</span>
+            </div>
+            <div className="border-t border-pink-100/80 pt-2.5 mt-2 flex justify-between items-center">
+              <span className="font-black text-pink-900 text-sm">المجموع التقريبي المقدر:</span>
+              <span className="font-black text-pink-700 text-lg">{totalCost.toLocaleString()} د.ع</span>
+            </div>
+          </div>
+
+          {/* Action button to WhatsApp */}
+          <button
+            onClick={handleCalcShare}
+            className="w-full bg-pink-700 hover:bg-pink-800 text-white font-black text-xs py-3 rounded-2xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+          >
+            <MessageSquare className="w-4.5 h-4.5 text-white" />
+            <span>طلب الشحن أو الاستفسار المباشر 💬</span>
+          </button>
+        </div>
+      </section>
+
+      {/* Preset Ready Products Gallery Showcase */}
+      {presetProducts.length > 0 && (
+        <section className="space-y-4 text-right">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="font-black text-lg text-gray-800 flex items-center gap-1.5">
+                <ShoppingBag className="w-5 h-5 text-pink-700" />
+                <span>منتجات مميزة جاهزة للشحن الفوري 🛍️</span>
+              </h3>
+              <p className="text-[10px] text-gray-400 font-semibold">تسوقي أجمل المنتجات الأصلية المختارة بأسعار مميزة جداً</p>
+            </div>
+          </div>
+
+          {/* Search bar & Category badge row */}
+          <div className="space-y-3">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="البحث باسم المنتج الجاهز..."
+                value={presetSearch}
+                onChange={(e) => setPresetSearch(e.target.value)}
+                className="w-full bg-white border border-pink-100 text-xs px-4 pr-10 py-2.5 rounded-2xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+              />
+              <Search className="w-4.5 h-4.5 text-pink-400 absolute right-3.5 top-3" />
+            </div>
+
+            {/* Scrolling Category Badges */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" dir="rtl">
+              {presetCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all shrink-0 cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-pink-700 text-white shadow-xs'
+                      : 'bg-white text-gray-500 border border-pink-50'
+                  }`}
+                >
+                  {cat === 'الكل' ? '✨ الكل' : cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Product Cards Grid */}
+          <div className="grid grid-cols-2 gap-3.5">
+            {filteredPresets.map((prod) => (
+              <div 
+                key={prod.id}
+                className="bg-white border border-pink-50/60 rounded-3xl p-3 flex flex-col justify-between shadow-xs hover:shadow-md transition-all h-[240px]"
+              >
+                <div className="space-y-2">
+                  <div className="w-full h-24 rounded-2xl overflow-hidden bg-pink-50 border border-pink-100 relative">
+                    <img
+                      src={prod.image || "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&q=80&w=250"}
+                      alt={prod.name}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-1 right-1.5 bg-pink-700/90 text-white font-extrabold text-[7.5px] px-2 py-0.5 rounded-full shadow-xs">
+                      {prod.category}
+                    </span>
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-[10.5px] text-gray-800 line-clamp-2 leading-tight h-8 overflow-hidden">
+                      {prod.name}
+                    </h4>
+                    <p className="text-pink-700 font-black text-xs mt-1">
+                      {prod.price.toLocaleString()} د.ع
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const orderMsg = `مرحباً حدوشة وبطوط ✨\nأود طلب المنتج الجاهز التالي المعروض في تطبيق إيرامو ستور:\nالمنتج: "${prod.name}"\nالسعر: ${prod.price.toLocaleString()} د.ع\nالرجاء تأكيد الحجز والطلب 💖`;
+                    window.open(getWhatsAppLink(orderMsg), '_blank');
+                  }}
+                  className="w-full bg-pink-50 text-pink-700 hover:bg-pink-100 font-extrabold text-[9px] py-2 rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer border border-pink-100/30"
+                >
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  <span>طلب وحجز فوري 🛍️</span>
+                </button>
+              </div>
+            ))}
+
+            {filteredPresets.length === 0 && (
+              <div className="col-span-2 text-center py-8 text-xs text-gray-400 bg-white/50 rounded-3xl border border-pink-50">
+                لا يوجد منتجات تطابق البحث في هذه الفئة.
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Recent Invoices */}
-      <section className="pb-8">
+      <section className="pb-8 text-right">
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-bold text-lg text-gray-800">الفواتير الأخيرة</h3>
           <button
@@ -261,3 +554,4 @@ export default function DashboardView() {
     </div>
   );
 }
+

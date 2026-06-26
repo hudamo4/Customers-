@@ -20,6 +20,7 @@ interface AppContextType {
   loading: boolean;
   updateProfile: (name: string, phone: string, city: string) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
+  markNotificationAsRead: (notifId: string) => Promise<void>;
   redeemPoints: (amount: number) => Promise<void>;
   deleteShipment: (id: string) => Promise<void>;
   addNotification: (notif: Omit<NotificationDetail, 'id' | 'userId'>) => Promise<void>;
@@ -27,7 +28,9 @@ interface AppContextType {
   payInvoice: (invoiceId: string) => Promise<void>;
   addInvoice: (invoice: Invoice) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
+  rateInvoice: (invoiceId: string, rating: number, comment?: string) => Promise<void>;
   updateCustomizations: (cust: Partial<AppCustomizations>) => Promise<void>;
+  updateAvatar: (avatar: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -35,7 +38,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // Initial fallback mock data for local storage seeding
 const DEFAULT_PROFILE: UserProfile = {
   uid: 'local_user',
-  name: 'أمنة العراق',
+  name: 'الزبونة الكريمة',
   phone: '+964 770 123 4567',
   city: 'بغداد، العراق',
   points: 1250,
@@ -308,7 +311,10 @@ export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
   trackingSupportQuote: 'خبراء الدعم اللوجستي متواجدون لمساعدتكِ طوال اليوم في تتبع الشحنات وحساب دقيق للأوزان.',
   invoiceInstructionText: 'الرجاء تحويل مبلغ الفاتورة الإجمالي إلى حساب المحفظة المعتمدة أدناه وإرفاق صورة التحويل أو إشعار الدفع لتأكيد الشحن الفوري.',
   notificationsBannerUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=800',
-  notificationsWelcomeText: 'مركز الإشعارات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨'
+  notificationsWelcomeText: 'مركز الإشعارات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨',
+  invoiceHadooshaImageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ',
+  mastercardExpiry: '12/28',
+  mastercardCvv: '345'
 };
 
 
@@ -392,8 +398,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Attempt to seed Firestore but gracefully ignore permission/access failures
       try {
         await seedInitialDataIfEmpty(currentUser.uid);
+        // await runMigrations(currentUser.uid);
       } catch (err) {
-        console.warn("Firestore seeding skipped due to credentials or permission restrictions:", err);
+        console.warn("Firestore seeding/migration skipped due to credentials or permission restrictions:", err);
       }
 
       // Real-time listener for user profile
@@ -514,6 +521,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (error) {
       console.warn("Firestore Notifications status update skipped (saved locally only):", error);
+    }
+  };
+
+  const markNotificationAsRead = async (notifId: string) => {
+    // 1. Update locally
+    const updated = notifications.map(n => n.id === notifId ? { ...n, read: true } : n);
+    saveNotificationsLocally(updated);
+
+    // 2. Sync to Firestore
+    if (!user) return;
+    try {
+      const notifDocRef = doc(db, 'notifications', notifId);
+      await updateDoc(notifDocRef, { read: true });
+    } catch (error) {
+      console.warn("Firestore Notification status update skipped (saved locally only):", error);
     }
   };
 
@@ -686,6 +708,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const rateInvoice = async (invoiceId: string, rating: number, comment?: string) => {
+    const todayStr = new Date().toLocaleDateString('ar-IQ', { year: 'numeric', month: 'numeric', day: 'numeric' });
+    const updatedInvoices = invoices.map(inv => {
+      if (inv.invoiceId === invoiceId || inv.id === invoiceId) {
+        return {
+          ...inv,
+          rating,
+          ratingComment: comment || '',
+          ratingDate: todayStr
+        };
+      }
+      return inv;
+    });
+    saveInvoicesLocally(updatedInvoices);
+
+    const invoice = invoices.find(inv => inv.invoiceId === invoiceId || inv.id === invoiceId);
+    if (!invoice) return;
+
+    if (!user) return;
+    try {
+      if (invoice.id && !invoice.id.startsWith('local_')) {
+        const docRef = doc(db, 'invoices', invoice.id);
+        await updateDoc(docRef, {
+          rating,
+          ratingComment: comment || '',
+          ratingDate: todayStr
+        });
+      }
+    } catch (error) {
+      console.warn("Firestore Invoice rating update failed:", error);
+    }
+  };
+
   const updateCustomizations = async (cust: Partial<AppCustomizations>) => {
     const updated = { ...customizations, ...cust };
     saveCustomizationsLocally(updated);
@@ -695,6 +750,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(custDocRef, updated, { merge: true });
     } catch (error) {
       console.warn("Firestore Customizations update skipped (saved locally only):", error);
+    }
+  };
+
+  const updateAvatar = async (avatar: string) => {
+    if (profile) {
+      saveProfileLocally({ ...profile, avatar });
+      if (user) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          await updateDoc(userDocRef, { avatar });
+        } catch (error) {
+          console.warn("Firestore Avatar update skipped (saved locally only):", error);
+        }
+      }
     }
   };
 
@@ -714,6 +783,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loading,
         updateProfile,
         markAllNotificationsAsRead,
+        markNotificationAsRead,
         redeemPoints,
         deleteShipment,
         addNotification,
@@ -721,7 +791,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         payInvoice,
         addInvoice,
         deleteInvoice,
+        rateInvoice,
         updateCustomizations,
+        updateAvatar,
       }}
     >
       {children}

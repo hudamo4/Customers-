@@ -102,6 +102,22 @@ export async function setupAnonymousUser(onUserReady: (user: User) => void) {
   });
 }
 
+export async function runMigrations(uid: string) {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userDocRef);
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+      if (data.name === 'أمنة العراق') {
+        await updateDoc(userDocRef, { name: 'الزبونة الكريمة' });
+        console.log("Migration: User name updated from أمنة العراق to الزبونة الكريمة");
+      }
+    }
+  } catch (error) {
+    console.error("Migration failed:", error);
+  }
+}
+
 // Seed helper to populate empty collections with beautiful interactive data
 export async function seedInitialDataIfEmpty(uid: string) {
   try {

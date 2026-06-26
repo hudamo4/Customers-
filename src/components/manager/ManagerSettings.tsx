@@ -22,7 +22,8 @@ import {
   Image as ImageIcon,
   HelpCircle,
   FileText,
-  Bell
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
 
 export default function ManagerSettings() {
@@ -55,6 +56,9 @@ export default function ManagerSettings() {
   const [invoiceInstructionText, setInvoiceInstructionText] = useState(customizations.invoiceInstructionText || '');
   const [notificationsBannerUrl, setNotificationsBannerUrl] = useState(customizations.notificationsBannerUrl || '');
   const [notificationsWelcomeText, setNotificationsWelcomeText] = useState(customizations.notificationsWelcomeText || '');
+  const [invoiceHadooshaImageUrl, setInvoiceHadooshaImageUrl] = useState(customizations.invoiceHadooshaImageUrl || '');
+  const [mastercardExpiry, setMastercardExpiry] = useState(customizations.mastercardExpiry || '12/28');
+  const [mastercardCvv, setMastercardCvv] = useState(customizations.mastercardCvv || '345');
 
   const [rates, setRates] = useState({
     baghdad: customizations.rates?.baghdad || '5,000 د.ع',
@@ -129,6 +133,11 @@ export default function ManagerSettings() {
     category: 'مكياج'
   });
 
+  // Confirmation Modal States
+  const [showPaymentSaveConfirm, setShowPaymentSaveConfirm] = useState<boolean>(false);
+  const [storeToDelete, setStoreToDelete] = useState<StoreCustomization | null>(null);
+  const [presetToDelete, setPresetToDelete] = useState<PresetProductCustomization | null>(null);
+
   // Save General settings to Firebase via context
   const handleSaveGeneralSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,6 +168,57 @@ export default function ManagerSettings() {
         invoiceInstructionText,
         notificationsBannerUrl,
         notificationsWelcomeText,
+        invoiceHadooshaImageUrl,
+        mastercardExpiry,
+        mastercardCvv,
+        iraqRates: iraqRatesList
+      });
+      setIsSaving(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error(err);
+      setIsSaving(false);
+    }
+  };
+
+  const handlePaymentFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setShowPaymentSaveConfirm(true);
+  };
+
+  const handleConfirmPaymentSave = async () => {
+    setShowPaymentSaveConfirm(false);
+    setIsSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      await updateCustomizations({
+        heroImageUrl,
+        heroTitle,
+        heroSubtitle,
+        showStores,
+        showLoyalty,
+        showBanners,
+        announcementText,
+        showAnnouncement,
+        rates,
+        bankInfo,
+        socials,
+        homeFooterMascotUrl,
+        homeFooterMascotQuote,
+        homeFooterMascotAuthor,
+        trackingBatootMascotUrl,
+        trackingBatootQuote,
+        trackingSupportAgentUrl,
+        trackingSupportTitle,
+        trackingSupportQuote,
+        invoiceInstructionText,
+        notificationsBannerUrl,
+        notificationsWelcomeText,
+        invoiceHadooshaImageUrl,
+        mastercardExpiry,
+        mastercardCvv,
         iraqRates: iraqRatesList
       });
       setIsSaving(false);
@@ -378,6 +438,25 @@ export default function ManagerSettings() {
                   />
                 </div>
               </div>
+
+              <div className="pt-2 border-t border-dashed border-pink-100/60 mt-3">
+                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة الترحيب بصفحة الفواتير (هدوشة) (URL)</label>
+                <input 
+                  type="text"
+                  value={invoiceHadooshaImageUrl}
+                  onChange={(e) => setInvoiceHadooshaImageUrl(e.target.value)}
+                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-3 rounded-xl font-mono text-left"
+                  placeholder="رابط الصورة بصفحة الفاتورة"
+                />
+                <span className="text-[9px] text-gray-400 mt-1 block">يمكنكِ تغيير الصورة الترحيبية للعميل في صفحة الفواتير.</span>
+              </div>
+
+              {invoiceHadooshaImageUrl && (
+                <div className="relative w-28 h-28 rounded-2xl overflow-hidden border border-pink-100 mx-auto mt-2">
+                  <img src={invoiceHadooshaImageUrl} alt="Invoice Image Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white font-bold text-[7px] px-2 py-0.5 rounded-full whitespace-nowrap">معاينة الصورة</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -656,7 +735,7 @@ export default function ManagerSettings() {
 
       {/* SUB-TAB 2: LOCAL DELIVERY RATES & BANK PAYMENT METHODS */}
       {activeSubTab === 'shipping_payment' && (
-        <form onSubmit={handleSaveGeneralSettings} className="space-y-6">
+        <form onSubmit={handlePaymentFormSubmit} className="space-y-6">
           
           {/* Local Shipping Rates (Iraq Provinces Customization) */}
           <div className="bg-white border border-pink-100 rounded-3xl p-6 space-y-4 text-right">
@@ -809,49 +888,53 @@ export default function ManagerSettings() {
             </div>
           </div>
 
-          {/* Bank & Zain Cash Info */}
+          {/* Bank & Mastercard Info */}
           <div className="bg-white border border-pink-100 rounded-3xl p-6 space-y-4 text-right">
             <h3 className="font-black text-sm text-gray-800 flex items-center gap-1.5">
               <Wallet className="w-4.5 h-4.5 text-pink-700" />
-              <span>بيانات المحافظ وبوابات التحصيل المعتمدة</span>
+              <span>بيانات بطاقة Master Card المعتمدة للمديرة</span>
             </h3>
 
             <div className="space-y-3.5">
               <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رقم حساب SuperKey الموحد</label>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">رقم بطاقة Master Card</label>
                 <input 
                   type="text"
                   value={bankInfo.superkey}
                   onChange={(e) => setBankInfo({ ...bankInfo, superkey: e.target.value })}
                   className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-mono text-left font-black"
+                  placeholder="5412 7500 1234 5678"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">اسم صاحب الحساب (بطاقة المديرة)</label>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">اسم صاحب بطاقة Master Card (بطاقة المديرة)</label>
                 <input 
                   type="text"
                   value={bankInfo.holderName}
                   onChange={(e) => setBankInfo({ ...bankInfo, holderName: e.target.value })}
                   className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-black"
+                  placeholder="HUDA AL-SULTANI"
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">رقم محفظة زين كاش (Zain Cash)</label>
+                  <label className="block text-[10px] font-black text-gray-500 mb-1">تاريخ انتهاء بطاقة Master Card</label>
                   <input 
                     type="text"
-                    value={bankInfo.zainCash}
-                    onChange={(e) => setBankInfo({ ...bankInfo, zainCash: e.target.value })}
+                    value={mastercardExpiry}
+                    onChange={(e) => setMastercardExpiry(e.target.value)}
                     className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-mono text-left font-black"
+                    placeholder="12/28"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">اسم صاحب محفظة زين</label>
+                  <label className="block text-[10px] font-black text-gray-500 mb-1">رمز الأمان (CVV)</label>
                   <input 
                     type="text"
-                    value={bankInfo.zainHolder}
-                    onChange={(e) => setBankInfo({ ...bankInfo, zainHolder: e.target.value })}
-                    className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-black"
+                    value={mastercardCvv}
+                    onChange={(e) => setMastercardCvv(e.target.value)}
+                    className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-mono text-left font-black"
+                    placeholder="345"
                   />
                 </div>
               </div>
@@ -1042,11 +1125,7 @@ export default function ManagerSettings() {
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`هل أنتِ متأكدة من رغبتكِ في حذف قسم "${store.name}"؟`)) {
-                        handleDeleteStore(store.id);
-                      }
-                    }}
+                    onClick={() => setStoreToDelete(store)}
                     className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all cursor-pointer"
                     title="حذف"
                   >
@@ -1192,11 +1271,7 @@ export default function ManagerSettings() {
                   </button>
                   <span className="text-gray-200">|</span>
                   <button
-                    onClick={() => {
-                      if (confirm(`هل أنتِ متأكدة من رغبتكِ في حذف منتج "${preset.name}"؟`)) {
-                        handleDeletePreset(preset.id);
-                      }
-                    }}
+                    onClick={() => setPresetToDelete(preset)}
                     className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all cursor-pointer text-[10px] flex items-center gap-1 font-bold"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -1209,6 +1284,107 @@ export default function ManagerSettings() {
             {presetsList.length === 0 && (
               <p className="col-span-2 text-center py-10 text-xs text-gray-400 bg-white/50 rounded-2xl border border-pink-50">لا يوجد منتجات جاهزة في المعرض حالياً. أضيفي منتجاً للبدء!</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Payment and Rates Save */}
+      {showPaymentSaveConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-pink-100" dir="rtl">
+            <div className="w-14 h-14 bg-pink-50 text-pink-700 rounded-full flex items-center justify-center mx-auto border border-pink-100/50">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">تأكيد تعديل وحفظ البيانات المالية؟</h4>
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed font-bold">
+                أنتِ على وشك تعديل بيانات مالية حساسة تشمل أسعار توصيل المحافظات العراقية أو معلومات بطاقة الـ Master Card الخاصة بالإدارة. سيتم تحديث هذه البيانات ومزامنتها فوراً مع كافة فواتير وحسابات زبونات التطبيق.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                onClick={handleConfirmPaymentSave}
+                className="flex-1 bg-gradient-to-r from-pink-700 to-rose-600 text-white text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-md"
+              >
+                تأكيد الحفظ والمزامنة 💖
+              </button>
+              <button 
+                onClick={() => setShowPaymentSaveConfirm(false)}
+                className="flex-1 bg-gray-100 text-gray-500 text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer"
+              >
+                تراجع وإلغاء ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Store/Department Deletion */}
+      {storeToDelete && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto border border-red-100/50">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">حذف قسم المتجر نهائياً؟</h4>
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed font-bold">
+                هل أنتِ متأكدة من حذف قسم <span className="text-pink-700 font-extrabold">"{storeToDelete.name}"</span>؟
+                هذا الإجراء سيؤدي لإزالة القسم ومعدلات شحنه تماماً من لوحة تحكم العملاء.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                onClick={() => {
+                  handleDeleteStore(storeToDelete.id);
+                  setStoreToDelete(null);
+                }}
+                className="flex-1 bg-red-600 text-white text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-md"
+              >
+                نعم، احذفي القسم 🗑️
+              </button>
+              <button 
+                onClick={() => setStoreToDelete(null)}
+                className="flex-1 bg-gray-100 text-gray-500 text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer"
+              >
+                إلغاء وتراجع ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Preset Product Deletion */}
+      {presetToDelete && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto border border-red-100/50">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">حذف منتج من المعرض؟</h4>
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed font-bold">
+                هل أنتِ متأكدة من حذف منتج <span className="text-pink-700 font-extrabold">"{presetToDelete.name}"</span>؟
+                سيتم إزالة هذا المنتج من معرض المنتجات الجاهزة لإدخال الفواتير السريعة.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                onClick={() => {
+                  handleDeletePreset(presetToDelete.id);
+                  setPresetToDelete(null);
+                }}
+                className="flex-1 bg-red-600 text-white text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-md"
+              >
+                نعم، احذفي المنتج 🗑️
+              </button>
+              <button 
+                onClick={() => setPresetToDelete(null)}
+                className="flex-1 bg-gray-100 text-gray-500 text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer"
+              >
+                إلغاء وتراجع ✕
+              </button>
+            </div>
           </div>
         </div>
       )}

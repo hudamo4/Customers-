@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Copy, MapPin, Plane, GitMerge, Box, ShoppingBag, Share2, Compass, MessageCircle, Info, CheckCircle, Package, Calculator, Plus, Minus, Scale, Search, Trash2, AlertTriangle, Wifi, WifiOff, Database } from 'lucide-react';
+import IramoLiveMap from './IramoLiveMap';
 
 export default function TrackingView() {
-  const { shipments, selectedShipmentId, setSelectedShipmentId, deleteShipment, customizations } = useApp();
+  const { shipments, selectedShipmentId, setSelectedShipmentId, deleteShipment, customizations, profile } = useApp();
   const [copied, setCopied] = useState<boolean>(false);
   const [supportMessage, setSupportMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [selectedMapNode, setSelectedMapNode] = useState<number | null>(null);
+  const [mapViewTab, setMapViewTab] = useState<'diagram' | 'gps'>('diagram');
 
   // Network offline/online status tracking
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
@@ -97,6 +100,53 @@ export default function TrackingView() {
     setTimeout(() => setSupportMessage(null), 8000);
   };
 
+  // Colored status styles helper
+  const getStatusStyles = (status: string) => {
+    const s = (status || '').toLowerCase();
+    
+    // Completed / Delivered (Green)
+    if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid')) {
+      return {
+        bg: 'bg-emerald-50 text-emerald-800',
+        border: 'border-emerald-200/80',
+        dot: 'bg-emerald-500',
+        label: 'مكتمل ✓',
+        glow: 'shadow-emerald-200'
+      };
+    }
+    
+    // In delivery / courier / transit (Yellow/Amber)
+    if (s.includes('طريق') || s.includes('مندوب') || s.includes('توصيل') || s.includes('شحن')) {
+      return {
+        bg: 'bg-amber-50 text-amber-800',
+        border: 'border-amber-200/80',
+        dot: 'bg-amber-500 animate-pulse',
+        label: 'قيد التوصيل 🚚',
+        glow: 'shadow-amber-200'
+      };
+    }
+    
+    // Customs / Airport (Blue)
+    if (s.includes('مطار') || s.includes('جمارك') || s.includes('بغداد') || s.includes('ترانزيت')) {
+      return {
+        bg: 'bg-sky-50 text-sky-800',
+        border: 'border-sky-200/80',
+        dot: 'bg-sky-500',
+        label: 'في مطار بغداد ✈️',
+        glow: 'shadow-sky-200'
+      };
+    }
+    
+    // Received / Origin / Processing (Pink / Rose)
+    return {
+      bg: 'bg-pink-50 text-pink-800',
+      border: 'border-pink-100/80',
+      dot: 'bg-pink-500',
+      label: 'قيد المعالجة 📦',
+      glow: 'shadow-pink-200'
+    };
+  };
+
   // Icon mapper helper
   const getIcon = (iconName: string, active: boolean) => {
     const cls = `w-5 h-5 ${active ? 'text-white' : 'text-pink-700'}`;
@@ -133,6 +183,60 @@ export default function TrackingView() {
       </div>
     );
   }
+
+  // Map progress helpers
+  const getProgressIndex = (status: string): number => {
+    const s = status.toLowerCase();
+    if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون')) {
+      return 4;
+    }
+    if (s.includes('طريق') || s.includes('مندوب') || s.includes('توصيل')) {
+      return 3;
+    }
+    if (s.includes('مطار') || s.includes('جمارك') || s.includes('بغداد')) {
+      return 2;
+    }
+    if (s.includes('مستودع') || s.includes('تجهيز') || s.includes('فرز') || s.includes('ترانزيت')) {
+      return 1;
+    }
+    return 0; // default to origin / ordered
+  };
+
+  const getOriginDetails = (origin: string) => {
+    const org = origin.toLowerCase();
+    if (org.includes('china') || org.includes('guangzhou') || org.includes('shenzhen') || org.includes('shein') || org.includes('temu') || org.includes('taobao') || org.includes('1688') || org.includes('aliexpress')) {
+      return { name: 'الصين 🇨🇳', x: 420, y: 130, details: 'تم استلام وتجهيز طردكِ الأنيق في مستودعات غوانزو/شينزين الصينية لبدء رحلته الفاخرة.' };
+    }
+    if (org.includes('kuwait') || org.includes('kwt') || org.includes('الكويت')) {
+      return { name: 'الكويت 🇰🇼', x: 420, y: 130, details: 'تم استلام طردكِ الأنيق وتجهيزه للشحن في مستودع إيرامو بالكويت لتقديم أفضل وأوفر خدمة شحن.' };
+    }
+    if (org.includes('uae') || org.includes('dubai') || org.includes('دبي') || org.includes('الامارات')) {
+      return { name: 'دبي 🇦🇪', x: 420, y: 130, details: 'تم استلام طردكِ وتجهيزه للشحن الجوي السريع في مستودع إيرامو بدبي.' };
+    }
+    if (org.includes('turkey') || org.includes('istanbul') || org.includes('تركيا') || org.includes('trendyol')) {
+      return { name: 'إسطنبول 🇹🇷', x: 420, y: 130, details: 'تم استلام الشحنة وتغليفها بدقة في مستودع إيرامو بإسطنبول، تركيا.' };
+    }
+    return { name: 'بلد المصدر 🌐', x: 420, y: 130, details: 'تم تجميع وتأكيد استلام الطرد في مستودع المعالجة الدولي المعتمد.' };
+  };
+
+  const originNode = getOriginDetails(activeShipment.origin || '');
+  const transitNode = { name: 'مستودع الترانزيت 📦', x: 320, y: 90, details: 'تجميع الطرود، التحقق من الأوزان والأبعاد، وإصدار بوليصة الشحن الدولي والبيانات الأمنية.' };
+  const customsNode = { name: 'مطار بغداد ✈️', x: 220, y: 110, details: 'وصول الرحلة الجوية بأمان لبغداد وبدء إجراءات التخليص الجمركي والتدقيق الأمني السريع لشحنات إيرامو.' };
+  const sortingNode = { name: 'مستودع إيرامو 🏠', x: 120, y: 80, details: 'استلام الطرد في مركز توزيع إيرامو الرئيسي ببغداد، فرزه حسب المناطق وتجهيزه للمندوب.' };
+  const deliveryNode = { name: 'التسليم النهائي 💖', x: 40, y: 130, details: 'تسليم الطرد الأنيق بابتسامة تليق بجمالكِ إلى باب منزلكِ عبر مندوبينا المتميزين.' };
+
+  const mapNodes = [originNode, transitNode, customsNode, sortingNode, deliveryNode];
+  const progressIndex = getProgressIndex(activeShipment.status || '');
+  const displayNodeIndex = selectedMapNode !== null ? selectedMapNode : progressIndex;
+  const activeMapNode = mapNodes[displayNodeIndex];
+
+  // Coordinates for drawing segments
+  const segments = [
+    { from: originNode, to: transitNode, active: progressIndex >= 1 },
+    { from: transitNode, to: customsNode, active: progressIndex >= 2 },
+    { from: customsNode, to: sortingNode, active: progressIndex >= 3 },
+    { from: sortingNode, to: deliveryNode, active: progressIndex >= 4 },
+  ];
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in" id="tracking-view">
@@ -181,20 +285,34 @@ export default function TrackingView() {
         </div>
 
         {filteredShipments.length > 0 ? (
-          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            {filteredShipments.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedShipmentId(s.id || null)}
-                className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
-                  activeShipment?.id === s.id
-                    ? 'bg-gradient-to-r from-pink-700 to-pink-500 text-white shadow-md shadow-pink-500/20'
-                    : 'bg-white border border-pink-100/40 text-gray-600 hover:bg-pink-50/80'
-                }`}
-              >
-                طرد {s.trackingNumber} ({s.origin.split(' ')[0]})
-              </button>
-            ))}
+          <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 no-scrollbar" dir="rtl">
+            {filteredShipments.map((s) => {
+              const statusStyles = getStatusStyles(s.status);
+              const isActive = activeShipment?.id === s.id;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedShipmentId(s.id || null)}
+                  className={`px-4 py-3 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer active:scale-95 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-pink-700 to-pink-500 text-white shadow-lg shadow-pink-500/20 border-transparent scale-[1.02]'
+                      : 'bg-white border-pink-100/50 text-gray-700 hover:bg-pink-50/40 hover:border-pink-200'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles.dot}`} />
+                  <div className="flex flex-col items-start gap-0.5">
+                    <span className="text-right">طرد {s.trackingNumber}</span>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold block ${
+                      isActive 
+                        ? 'bg-white/20 text-white' 
+                        : `${statusStyles.bg} ${statusStyles.border} border text-[8px]`
+                    }`}>
+                      {s.status}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-gray-400 font-bold text-center py-2">لا توجد نتائج تطابق بحثكِ.</p>
@@ -204,10 +322,16 @@ export default function TrackingView() {
       {/* Hero Tracking Summary */}
       <section className="bg-white/95 backdrop-blur-xl border border-pink-100 rounded-3xl p-6 shadow-sm relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div className="space-y-2">
-            <span className="bg-pink-100 text-pink-800 px-4 py-1.5 rounded-full text-xs font-bold shadow-sm inline-block">
-              {activeShipment.status}
-            </span>
+          <div className="space-y-2 text-right w-full md:w-auto" dir="rtl">
+            {activeShipment && (() => {
+              const styles = getStatusStyles(activeShipment.status);
+              return (
+                <span className={`px-4 py-1.5 rounded-full text-xs font-black shadow-sm inline-flex items-center gap-2 border ${styles.bg} ${styles.border}`}>
+                  <span className={`w-2 h-2 rounded-full ${styles.dot}`} />
+                  <span>حالة الشحنة: {activeShipment.status}</span>
+                </span>
+              );
+            })()}
             <h2 className="text-2xl font-black text-gray-800 tracking-tight">
               {activeShipment.trackingNumber}
             </h2>
@@ -275,36 +399,41 @@ export default function TrackingView() {
             </div>
 
             <div className="relative">
-              {/* Vertical line connecting steps */}
-              <div className="absolute right-[15px] top-4 bottom-4 w-[2px] bg-pink-100"></div>
+              {/* Vertical line connecting steps - enhanced to look like a path */}
+              <div className="absolute right-[15px] top-4 bottom-4 w-[4px] bg-gradient-to-b from-pink-200 to-pink-100 rounded-full"></div>
 
               {/* Steps list */}
               <div className="space-y-8">
                 {activeShipment.journey?.map((step, idx) => (
                   <div key={idx} className="relative pr-10 flex gap-4">
-                    {/* Step bubble icon */}
+                    {/* Step bubble icon - dynamic based on status */}
                     <div
-                      className={`absolute right-0 top-0.5 w-8 h-8 rounded-full flex items-center justify-center z-10 shadow-sm transition-all ${
+                      className={`absolute right-0 top-0.5 w-8 h-8 rounded-full flex items-center justify-center z-10 shadow-md transition-all duration-500 ${
                         step.active
-                          ? 'bg-pink-700 ring-4 ring-pink-100'
-                          : 'bg-pink-100'
+                          ? 'bg-pink-700 ring-4 ring-pink-100 scale-110'
+                          : 'bg-white border-2 border-pink-200'
                       }`}
                     >
                       {getIcon(step.icon, step.active)}
                     </div>
 
-                    <div className="flex-1 space-y-1">
+                    <div className="flex-1 space-y-1 bg-white/50 p-4 rounded-2xl border border-pink-50 shadow-sm">
                       <h4
                         className={`text-sm ${
-                          step.active ? 'text-pink-700 font-bold' : 'text-gray-800 font-semibold'
+                          step.active ? 'text-pink-800 font-black' : 'text-gray-600 font-semibold'
                         }`}
                       >
                         {step.title}
                       </h4>
                       <p className="text-gray-500 text-xs leading-relaxed">{step.description}</p>
-                      <span className="inline-block bg-gray-50 text-[10px] text-gray-400 font-bold px-2 py-0.5 rounded-md mt-1">
-                        {step.time} • {step.location}
-                      </span>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="inline-block bg-pink-50 text-[10px] text-pink-700 font-black px-2 py-0.5 rounded-md">
+                          {step.time}
+                        </span>
+                        <span className="text-[10px] text-gray-400 font-bold">
+                          📍 {step.location}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -312,29 +441,211 @@ export default function TrackingView() {
             </div>
           </div>
 
-          {/* Live Map Mascot Mockup */}
-          <div className="bg-white/95 backdrop-blur-xl border border-pink-100 rounded-3xl overflow-hidden p-6 relative flex flex-col md:flex-row items-center gap-6 shadow-sm">
-            <div className="relative w-28 h-28 shrink-0">
-              <div className="absolute inset-0 bg-pink-50 rounded-full blur-2xl"></div>
-              <img
-                alt="Batoot Mascot"
-                className="w-full h-full rounded-full object-cover border-4 border-white shadow-lg ring-8 ring-pink-50/50 float-animation"
-                src={customizations?.trackingBatootMascotUrl || "https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"}
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute -bottom-1 -right-1 bg-pink-700 text-white p-2 rounded-xl shadow-md">
-                <Compass className="w-4 h-4" />
+          {/* Interactive Live Shipping Route Map */}
+          <div className="bg-white/95 backdrop-blur-xl border border-pink-100 rounded-3xl p-6 shadow-sm space-y-4 relative overflow-hidden text-right" dir="rtl">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-pink-50 pb-3 flex-row-reverse">
+              {/* Tabs selector */}
+              <div className="flex bg-pink-50/50 p-1 rounded-2xl gap-1 shrink-0">
+                <button
+                  onClick={() => setMapViewTab('diagram')}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
+                    mapViewTab === 'diagram'
+                      ? 'bg-pink-700 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-pink-700 hover:bg-white/50'
+                  }`}
+                >
+                  المخطط التوضيحي 🗺️
+                </button>
+                <button
+                  onClick={() => setMapViewTab('gps')}
+                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
+                    mapViewTab === 'gps'
+                      ? 'bg-pink-700 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-pink-700 hover:bg-white/50'
+                  }`}
+                >
+                  خريطة GPS الحية 🛰️
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-pink-700 shrink-0">
+                  <Compass className="w-5 h-5 animate-spin-slow text-pink-700" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm text-gray-800">خريطة التتبع التفاعلية</h4>
+                  <p className="text-[10px] text-gray-400 font-bold">تتبعي خط سير الشحنة الفعلي أو بالمحطات التوضيحية 🗺️</p>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-2 flex-1 text-center md:text-right">
-              <div className="bg-pink-50 border border-pink-100/50 px-4 py-2 rounded-2xl shadow-sm inline-block">
-                <p className="text-xs text-pink-800 font-black">🤖 بطوط المساعد الذكي يراقب طردكِ!</p>
+            {mapViewTab === 'diagram' ? (
+              <>
+                {/* Map Canvas */}
+                <div className="bg-slate-950 rounded-2xl p-4 relative overflow-hidden border border-pink-100/10 min-h-[220px] flex items-center justify-center">
+                  {/* Radar Grid Lines background */}
+                  <div className="absolute inset-0 opacity-[0.03] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+                  
+                  <svg viewBox="0 0 460 180" className="w-full h-auto relative z-10 select-none">
+                    {/* Connection lines / segments */}
+                    {segments.map((seg, idx) => (
+                      <g key={idx}>
+                        {/* Background line shadow */}
+                        <line 
+                          x1={seg.from.x} 
+                          y1={seg.from.y} 
+                          x2={seg.to.x} 
+                          y2={seg.to.y} 
+                          stroke={seg.active ? 'rgba(219, 39, 119, 0.3)' : 'rgba(244, 143, 177, 0.08)'} 
+                          strokeWidth={seg.active ? '5' : '3'}
+                          strokeLinecap="round"
+                        />
+                        {/* Core Line */}
+                        <line 
+                          x1={seg.from.x} 
+                          y1={seg.from.y} 
+                          x2={seg.to.x} 
+                          y2={seg.to.y} 
+                          stroke={seg.active ? '#db2777' : '#374151'} 
+                          strokeWidth="2.5" 
+                          strokeDasharray={seg.active ? 'none' : '4 3'}
+                          strokeLinecap="round"
+                        />
+                      </g>
+                    ))}
+
+                    {/* Draw airplane/transit icon flying along active segment */}
+                    {(() => {
+                      const activeSeg = segments[progressIndex - 1] || segments[0];
+                      if (progressIndex > 0 && progressIndex < 5 && activeSeg) {
+                        // Place it halfway on the current active segment
+                        const midX = (activeSeg.from.x + activeSeg.to.x) / 2;
+                        const midY = (activeSeg.from.y + activeSeg.to.y) / 2;
+                        return (
+                          <g className="animate-pulse">
+                            <circle cx={midX} cy={midY} r="8" fill="#f43f5e" className="opacity-40 animate-ping" />
+                            <circle cx={midX} cy={midY} r="4" fill="#db2777" />
+                            {/* Plane Vector path rotated towards target */}
+                            <g transform={`translate(${midX - 7}, ${midY - 7}) scale(0.75)`}>
+                              <path 
+                                d="M14 16v-2l-4.782-2.906c-.19-.116-.318-.31-.318-.534V4.5c0-.828-.672-1.5-1.5-1.5s-1.5.672-1.5 1.5v5.56c0 .224-.128.418-.318.534L1 14v2h6.14l1.107 1.66c.11.165.293.265.49.265h1.12c.32 0 .54-.316.425-.615L9.14 16H14z" 
+                                fill="#ffffff" 
+                              />
+                            </g>
+                          </g>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* Nodes */}
+                    {mapNodes.map((node, idx) => {
+                      const isCompleted = idx < progressIndex;
+                      const isCurrent = idx === progressIndex;
+                      const isSelected = idx === displayNodeIndex;
+                      
+                      return (
+                        <g 
+                          key={idx} 
+                          className="cursor-pointer" 
+                          onClick={() => setSelectedMapNode(idx)}
+                        >
+                          {/* Active ring background glow */}
+                          {(isCurrent || isSelected) && (
+                            <circle 
+                              cx={node.x} 
+                              cy={node.y} 
+                              r={isCurrent ? "12" : "10"} 
+                              fill={isCurrent ? "rgba(219, 39, 119, 0.25)" : "rgba(244, 143, 177, 0.15)"} 
+                              className={isCurrent ? "animate-ping" : ""}
+                            />
+                          )}
+                          
+                          {/* Outer border ring */}
+                          <circle 
+                            cx={node.x} 
+                            cy={node.y} 
+                            r={isCurrent ? "8" : "6"} 
+                            fill={isCompleted ? "#db2777" : isCurrent ? "#ec4899" : "#1f2937"} 
+                            stroke={isCompleted ? "#fbcfe8" : isCurrent ? "#ffffff" : "#4b5563"} 
+                            strokeWidth="1.5"
+                          />
+
+                          {/* Small center dot */}
+                          <circle 
+                            cx={node.x} 
+                            cy={node.y} 
+                            r="2.5" 
+                            fill={isCompleted || isCurrent ? "#ffffff" : "#9ca3af"} 
+                          />
+
+                          {/* Text Label */}
+                          <text 
+                            x={node.x} 
+                            y={node.y + 18} 
+                            textAnchor="middle" 
+                            fill={isCurrent ? "#f472b6" : isSelected ? "#ec4899" : "#9ca3af"} 
+                            className="text-[9px] font-black tracking-tight"
+                          >
+                            {node.name.split(' ')[0]}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+
+                {/* Node Status Card Details */}
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/40 space-y-2 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-pink-800 font-extrabold uppercase tracking-wide">تفاصيل المحطة المحددة</span>
+                    <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-lg ${
+                      displayNodeIndex < progressIndex 
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                        : displayNodeIndex === progressIndex 
+                          ? 'bg-pink-100 text-pink-800 border border-pink-200 animate-pulse' 
+                          : 'bg-gray-100 text-gray-400 border border-gray-200'
+                    }`}>
+                      {displayNodeIndex < progressIndex 
+                        ? 'محطة مكتملة ✓' 
+                        : displayNodeIndex === progressIndex 
+                          ? 'المحطة الحالية 📍' 
+                          : 'قيد الانتظار ⏳'}
+                    </span>
+                  </div>
+
+                  <h5 className="font-extrabold text-gray-800 text-xs">{activeMapNode.name}</h5>
+                  <p className="text-[10px] text-gray-500 font-bold leading-relaxed">{activeMapNode.details}</p>
+
+                  {/* Dynamic Mascot Quote for the node */}
+                  <div className="pt-2 border-t border-pink-100/40 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full overflow-hidden border border-pink-200 shrink-0">
+                      <img 
+                        src={customizations?.trackingBatootMascotUrl || "https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"} 
+                        alt="Batoot Mascot" 
+                        className="w-full h-full object-cover" 
+                      />
+                    </div>
+                    <p className="text-[10px] text-pink-700 italic font-semibold leading-tight">
+                      {displayNodeIndex === 0 && '✨ "التحضير في بلد المصدر هو أول خطوة لرحلة آمنة وأنيقة!"'}
+                      {displayNodeIndex === 1 && '📦 "الترانزيت والفرز يضمنان وزن دقيق ومعالجة سريعة لجميع الطرود!"'}
+                      {displayNodeIndex === 2 && '✈️ "وصلنا مطار بغداد! التخليص الجمركي سريع ليطير طردكِ إليكِ!"'}
+                      {displayNodeIndex === 3 && '🏠 "الشحنة في مستودع إيرامو ببغداد، نقوم بلمساتنا النهائية قبل التسليم!"'}
+                      {displayNodeIndex === 4 && '💖 "يا لها من لحظة سعيدة! طردكِ الأنيق وصل ليديكِ ليزيدكِ جمالاً ونضارة!"'}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="animate-fade-in space-y-2">
+                <IramoLiveMap
+                  origin={activeShipment.origin}
+                  status={activeShipment.status}
+                  destinationCity={profile?.city || 'بغداد'}
+                  trackingNumber={activeShipment.trackingNumber}
+                />
               </div>
-              <h4 className="font-extrabold text-sm text-gray-800">موقع الشحنة الحالي:</h4>
-              <p className="text-xs text-pink-700 font-bold">{activeShipment.currentLocation}</p>
-              <p className="text-[11px] text-gray-500 italic">{customizations?.trackingBatootQuote || '"أتابع تحركاتها عبر الخط الجوي لحظة بلحظة لضمان وصولها الفاخر والأنيق إليكِ!"'}</p>
-            </div>
+            )}
           </div>
         </div>
 

@@ -114,7 +114,7 @@ const AVAILABLE_STORES = [
 ];
 
 export default function ProfileView() {
-  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations } = useApp();
+  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar } = useApp();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [name, setName] = useState<string>(profile?.name || '');
   const [phone, setPhone] = useState<string>(profile?.phone || '');
@@ -129,6 +129,8 @@ export default function ProfileView() {
   const [showPasscodeModal, setShowPasscodeModal] = useState<boolean>(false);
   const [passcodeInput, setPasscodeInput] = useState<string>('');
   const [passcodeError, setPasscodeError] = useState<boolean>(false);
+  const [showAvatarModal, setShowAvatarModal] = useState<boolean>(false);
+  const [newAvatarUrl, setNewAvatarUrl] = useState<string>('');
 
   // Wallet & Mastercard payment options states
   const [showPaymentMethods, setShowPaymentMethods] = useState<boolean>(false);
@@ -254,13 +256,19 @@ export default function ProfileView() {
                 referrerPolicy="no-referrer"
               />
             </div>
-            <div className="absolute -bottom-1 -left-1 bg-pink-700 text-white p-2 rounded-full shadow-lg border-2 border-white cursor-pointer active:scale-90 transition-transform">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowAvatarModal(true);
+              }}
+              className="absolute -bottom-1 -left-1 bg-pink-700 text-white p-2 rounded-full shadow-lg border-2 border-white cursor-pointer active:scale-90 transition-transform flex items-center gap-2 px-3">
               <Camera className="w-4.5 h-4.5" />
-            </div>
+              <span className="text-[10px] font-bold">تغيير الصورة</span>
+            </button>
           </div>
         </div>
 
-        <h2 className="text-xl font-extrabold text-gray-800">{profile?.name || 'أمنة العراق'}</h2>
+        <h2 className="text-xl font-extrabold text-gray-800">{profile?.name || 'الزبونة الكريمة'}</h2>
         <div className="flex flex-col items-center gap-2 mt-2">
           <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-pink-100 text-pink-800 rounded-full shadow-sm">
             <Star className="w-4 h-4 fill-pink-800 text-pink-800" />
@@ -328,17 +336,18 @@ export default function ProfileView() {
           {!isEditing ? (
             <button
               onClick={handleEditClick}
-              className="text-pink-700 hover:bg-pink-50 p-2 rounded-full transition-colors flex items-center justify-center border border-pink-50"
+              className="text-pink-700 hover:bg-pink-50 p-2 px-4 rounded-full transition-colors flex items-center justify-center border border-pink-50 gap-2"
             >
               <Edit className="w-4 h-4" />
+              <span className="text-xs font-bold">تعديل البيانات</span>
             </button>
           ) : (
             <button
               onClick={handleSave}
               disabled={saving}
-              className="text-green-700 hover:bg-green-50 p-2 rounded-full transition-colors flex items-center justify-center border border-green-50"
+              className="text-green-700 hover:bg-green-50 p-2 px-4 rounded-full transition-colors flex items-center justify-center border border-green-50 gap-2"
             >
-              {saving ? '...' : <Check className="w-4 h-4" />}
+              {saving ? '...' : <><Check className="w-4 h-4" /> <span className="text-xs font-bold">حفظ</span></>}
             </button>
           )}
         </div>
@@ -506,7 +515,7 @@ export default function ProfileView() {
         </div>
         <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-pink-100/20 rounded-full blur-2xl"></div>
       </section>
-
+      
       {/* Available Sites Modal */}
       {showAvailableSites && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -648,40 +657,13 @@ export default function ProfileView() {
               {/* Wallet Balance Card */}
               <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl"></div>
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start">
                   <div>
                     <span className="text-[10px] uppercase font-black tracking-wider text-pink-300 block mb-1">رصيد محفظة إيرامو الحالي</span>
                     <h3 className="text-2xl font-black tracking-tight">{walletBalance.toLocaleString()} د.ع</h3>
                   </div>
                   <span className="text-[9px] bg-white/10 px-2.5 py-1 rounded-xl text-white/90 font-black border border-white/10">نشطة وآمنة</span>
                 </div>
-
-                {/* Top Up Box */}
-                <div className="mt-4 pt-4 border-t border-white/10 flex gap-2 items-center">
-                  <div className="relative flex-1">
-                    <input 
-                      type="number"
-                      value={topupAmount}
-                      onChange={(e) => setTopupAmount(e.target.value)}
-                      placeholder="مبلغ الشحن"
-                      className="w-full bg-white/10 hover:bg-white/15 focus:bg-white/20 border border-white/15 focus:border-pink-400 rounded-2xl px-4 py-2.5 text-xs font-black text-white focus:outline-none placeholder-white/40"
-                    />
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-white/60">د.ع</span>
-                  </div>
-                  <button
-                    disabled={isToppingUp}
-                    onClick={handleTopupWallet}
-                    className="bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 disabled:from-neutral-700 disabled:to-neutral-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black transition-all active:scale-95 shadow-md shrink-0 cursor-pointer"
-                  >
-                    {isToppingUp ? 'جاري الشحن...' : 'تعبئة الرصيد 🚀'}
-                  </button>
-                </div>
-
-                {topupSuccess && (
-                  <p className="text-[10px] text-emerald-400 font-extrabold mt-2 flex items-center gap-1">
-                    <CheckCircle className="w-3.5 h-3.5" /> تم شحن محفظتكِ بنجاح وتحديث الرصيد!
-                  </p>
-                )}
               </div>
 
               {/* Authorized Manager's Card Section */}
@@ -811,6 +793,83 @@ export default function ProfileView() {
                   setPasscodeError(false);
                 }}
                 className="flex-1 bg-gray-100 text-gray-500 text-xs font-black py-2.5 rounded-xl active:scale-95 transition-all cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Avatar Change Modal */}
+      {showAvatarModal && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-6 shadow-2xl text-center space-y-4 border border-pink-100">
+            <div className="w-12 h-12 bg-pink-100 text-pink-700 rounded-full flex items-center justify-center mx-auto">
+              <Camera className="w-6 h-6" />
+            </div>
+            
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">تغيير الصورة الشخصية</h4>
+              <p className="text-[10px] text-gray-400 mt-1 leading-relaxed font-bold">
+                يرجى إدخال رابط الصورة أو اختيار أحد الرمزيات الأنيقة الجاهزة أدناه 💖
+              </p>
+            </div>
+
+            {/* Ready Preset Avatars */}
+            <div className="space-y-1.5 text-right">
+              <span className="text-[10px] text-gray-400 font-bold block">رمزيات مقترحة سريعة:</span>
+              <div className="grid grid-cols-4 gap-2 justify-center">
+                {[
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
+                  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120',
+                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=120',
+                  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=120'
+                ].map((avatarUrl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setNewAvatarUrl(avatarUrl);
+                    }}
+                    className={`w-12 h-12 rounded-full overflow-hidden border-2 transition-all cursor-pointer active:scale-95 ${newAvatarUrl === avatarUrl ? 'border-pink-700 ring-2 ring-pink-100 scale-105' : 'border-pink-100 hover:border-pink-300'}`}
+                  >
+                    <img src={avatarUrl} alt="Preset Avatar" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1 text-right">
+              <span className="text-[10px] text-gray-400 font-bold block">أو أدخلي رابط صورتكِ الخاصة:</span>
+              <input 
+                type="text"
+                placeholder="رابط الصورة (URL)"
+                value={newAvatarUrl}
+                onChange={(e) => setNewAvatarUrl(e.target.value)}
+                className="w-full bg-gray-50 border border-pink-100 text-xs font-bold py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all text-right px-3"
+              />
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button 
+                onClick={() => {
+                  if (newAvatarUrl) {
+                    updateAvatar(newAvatarUrl);
+                    setShowAvatarModal(false);
+                    setNewAvatarUrl('');
+                  }
+                }}
+                className="flex-1 bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white text-xs font-black py-2.5 rounded-xl active:scale-[0.98] transition-all cursor-pointer"
+              >
+                حفظ الصورة
+              </button>
+              <button 
+                onClick={() => {
+                  setShowAvatarModal(false);
+                  setNewAvatarUrl('');
+                }}
+                className="flex-1 bg-gray-100 text-gray-500 text-xs font-black py-2.5 rounded-xl active:scale-[0.98] transition-all cursor-pointer"
               >
                 إلغاء
               </button>

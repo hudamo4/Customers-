@@ -1,10 +1,83 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Download, CheckCircle, Clock, ShoppingBag, Eye, Search, Sparkles, Check, Truck, FileDown, CreditCard, Lock, ShieldCheck, X, Printer, Copy, Receipt } from 'lucide-react';
+import { Download, CheckCircle, Clock, ShoppingBag, Eye, Search, Sparkles, Check, Truck, FileDown, CreditCard, Lock, ShieldCheck, X, Printer, Copy, Receipt, Star } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Invoice } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+
+interface InvoiceRatingFormProps {
+  invoiceId: string;
+}
+
+function InvoiceRatingForm({ invoiceId }: InvoiceRatingFormProps) {
+  const { rateInvoice } = useApp();
+  const [rating, setRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [comment, setComment] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (rating === 0) return;
+    setIsSubmitting(true);
+    try {
+      await rateInvoice(invoiceId, rating, comment);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-2 mt-1">
+      <div className="flex items-center gap-1.5 justify-end">
+        <span className="text-[10px] text-gray-500 font-bold ml-1">انقري لتقييم النجوم:</span>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              type="button"
+              key={star}
+              onClick={() => setRating(star)}
+              onMouseEnter={() => setHoverRating(star)}
+              onMouseLeave={() => setHoverRating(0)}
+              className="p-0.5 hover:scale-110 active:scale-95 transition-all cursor-pointer"
+            >
+              <Star
+                className={`w-5 h-5 transition-colors ${
+                  star <= (hoverRating || rating)
+                    ? 'text-amber-400 fill-amber-400'
+                    : 'text-gray-200'
+                }`}
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {rating > 0 && (
+        <div className="flex gap-2 items-center animate-fade-in">
+          <input
+            type="text"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="اكتبي ملاحظاتكِ هنا (اختياري)..."
+            className="flex-1 bg-white border border-pink-100 rounded-xl px-3 py-1.5 text-xs text-right focus:outline-none focus:ring-1 focus:ring-pink-400"
+            dir="rtl"
+          />
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-pink-700 hover:bg-pink-800 disabled:bg-gray-300 text-white text-[10px] font-black px-4 py-2 rounded-xl transition-all active:scale-95 cursor-pointer shrink-0"
+          >
+            {isSubmitting ? 'جاري الحفظ...' : 'إرسال'}
+          </button>
+        </div>
+      )}
+    </form>
+  );
+}
 
 
 function parsePercentOrFloat(val: string): number {
@@ -221,11 +294,16 @@ const BankIcon = ({ className }: { className?: string }) => (
 );
 
 export default function InvoiceView() {
-  const { profile, invoices, payInvoice, shipments, customizations } = useApp();
+  const { profile, invoices, payInvoice, shipments, customizations, updateCustomizations } = useApp();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportingAll, setExportingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Paid' | 'Pending'>('All');
+
+  // Manager image edit states
+  const isManager = localStorage.getItem('iramo_app_mode') === 'manager';
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [newImageUrl, setNewImageUrl] = useState(customizations?.invoiceHadooshaImageUrl || '');
 
   // Elegant Voucher States
   const [showVoucherModal, setShowVoucherModal] = useState<boolean>(false);
@@ -259,6 +337,13 @@ export default function InvoiceView() {
   const [cvv, setCvv] = useState<string>('345');
   const [isPaying, setIsPaying] = useState<boolean>(false);
   const [paySuccess, setPaySuccess] = useState<boolean>(false);
+  const [copiedNumber, setCopiedNumber] = useState<boolean>(false);
+
+  const handleCopyCard = () => {
+    navigator.clipboard.writeText(customizations?.bankInfo?.superkey || '5412 7500 1234 5678');
+    setCopiedNumber(true);
+    setTimeout(() => setCopiedNumber(false), 2000);
+  };
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
@@ -765,9 +850,9 @@ export default function InvoiceView() {
               <span className="font-black text-xs text-[#7D5558]">معلومات التحويل</span>
               <TitleBranch className="w-8 h-4 text-[#EAA8AC]" />
             </div>
-            <p className="text-[9px] text-[#7D5558]/70 font-bold mb-1">رقم الحساب:</p>
-            <div className="text-2xl font-mono font-black text-pink-800 tracking-widest bg-white py-1 rounded-xl border border-[#FCDDDE] shadow-inner inline-block px-6">
-              {customizations?.bankInfo?.zainCash || '7144102758'}
+            <p className="text-[9px] text-[#7D5558]/70 font-bold mb-1">رقم بطاقة Master Card:</p>
+            <div className="text-sm font-mono font-black text-pink-800 tracking-wider bg-white py-2 rounded-xl border border-[#FCDDDE] shadow-inner inline-block px-6">
+              {customizations?.bankInfo?.superkey || '5412 7500 1234 5678'}
             </div>
           </section>
 
@@ -872,18 +957,119 @@ export default function InvoiceView() {
           <h2 className="text-xl font-bold text-pink-700">أهلاً بكِ، {profile?.name || 'يا أنيقة'}!</h2>
           <p className="text-gray-500 text-xs leading-relaxed">
             هنا تجدين سجلاً كاملاً وحقيقياً لمشترياتكِ وحالة الفواتير والمدفوعات الخاصة بكِ.
+            <span className="block text-pink-600 font-extrabold text-[10px] mt-1 bg-pink-50 rounded-md px-2 py-0.5 inline-block">
+              ✨ انقري على الصورة أو الزر المتوهج باليسار لتغيير هذه الصورة الترحيبية واختيار شخصيتكِ المفضلة!
+            </span>
           </p>
         </div>
-        <div className="relative w-24 h-24 shrink-0">
+        <div className="relative w-24 h-24 shrink-0 group">
           <div className="absolute inset-0 bg-pink-100/30 rounded-full blur-2xl"></div>
           <img
             alt="Hadoosha"
-            className="w-full h-full object-contain relative z-10 drop-shadow"
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ"
+            className="w-full h-full object-contain relative z-10 drop-shadow rounded-full cursor-pointer hover:scale-105 transition-transform duration-300"
+            src={customizations?.invoiceHadooshaImageUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ"}
             referrerPolicy="no-referrer"
+            onClick={() => {
+              setNewImageUrl(customizations?.invoiceHadooshaImageUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ");
+              setIsEditingImage(true);
+            }}
           />
+          <button
+            onClick={() => {
+              setNewImageUrl(customizations?.invoiceHadooshaImageUrl || "https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ");
+              setIsEditingImage(true);
+            }}
+            className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-pink-700 text-white flex items-center justify-center shadow-lg hover:bg-pink-800 transition-all border-2 border-white z-20 cursor-pointer active:scale-95"
+            title="تغيير الصورة الترحيبية"
+          >
+            <Sparkles className="w-4 h-4 text-pink-100 animate-pulse" />
+          </button>
         </div>
       </div>
+
+      {/* Edit Invoice Character Image Modal (Manager Only) */}
+      {isEditingImage && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-pink-100 shadow-2xl animate-fade-in text-right">
+            <div className="flex items-center justify-between border-b border-pink-50 pb-3 flex-row-reverse">
+              <button 
+                onClick={() => setIsEditingImage(false)}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h4 className="font-extrabold text-sm text-gray-800 flex items-center gap-2">
+                <Sparkles className="w-4.5 h-4.5 text-pink-700 animate-pulse" />
+                <span>تغيير صورة الترحيب بالفواتير (المديرة)</span>
+              </h4>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-black text-gray-500 mb-2">رابط الصورة الجديد (URL)</label>
+                <input
+                  type="text"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  className="w-full bg-gray-50 border border-pink-100 text-xs px-4 py-3 rounded-xl font-mono text-left focus:outline-none focus:border-pink-500"
+                  placeholder="أدخلي رابط الصورة الجديد هنا..."
+                />
+              </div>
+
+              {/* Predefined Presets */}
+              <div className="space-y-2">
+                <span className="block text-[10px] font-black text-gray-400">شخصيات ترحيبية جاهزة:</span>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { name: 'هدوشة (افتراضي)', url: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ' },
+                    { name: 'بطوط الأنيق', url: 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8' },
+                    { name: 'سيدة الأعمال', url: 'https://lh3.googleusercontent.com/aida/AP1WRLt6-KkaqmBMU0ma4nxf0K0zdNrE-JbMHCNgioablK3UA34SU_BYJdYiVDduyaLnaMLdxjAHykkh8WM2gdzHQMZPkvT3I6jHR79rKjlBHaP0ehlBvtbuGcNdbhpWsXxX5Cf-LEemxYpVddPfXvC8Ph322IFZguQxOz-1baaD7xJvlUUyQbZL-akA0fu93pAOzBb9gxtQlvG0TxiCGAyFYtRXx3_1fmXwa5k4Zknyl3UY3fr_uHFlDe_da50' },
+                    { name: 'هدية لطيفة', url: 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw' }
+                  ].map((preset, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => setNewImageUrl(preset.url)}
+                      className="p-1.5 border border-pink-100 rounded-xl hover:border-pink-500 transition-colors flex flex-col items-center gap-1 cursor-pointer bg-pink-50/20"
+                    >
+                      <img src={preset.url} alt={preset.name} className="w-8 h-8 object-contain rounded-full" referrerPolicy="no-referrer" />
+                      <span className="text-[8px] font-black text-gray-500 text-center whitespace-nowrap overflow-hidden text-ellipsis w-full">{preset.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Preview */}
+              {newImageUrl && (
+                <div className="flex flex-col items-center justify-center p-3 bg-pink-50/30 rounded-2xl border border-pink-100/50">
+                  <span className="text-[9px] font-black text-pink-700 mb-2">معاينة الصورة الحية</span>
+                  <div className="w-20 h-20 bg-white rounded-full overflow-hidden border border-pink-200 p-1">
+                    <img src={newImageUrl} alt="Live Preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    await updateCustomizations({ invoiceHadooshaImageUrl: newImageUrl });
+                    setIsEditingImage(false);
+                  }}
+                  className="flex-1 py-3 bg-pink-700 hover:bg-pink-800 text-white font-black rounded-xl text-xs shadow-md active:scale-95 transition-all cursor-pointer"
+                >
+                  حفظ التغييرات
+                </button>
+                <button
+                  onClick={() => setIsEditingImage(false)}
+                  className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
       <div className="space-y-3">
@@ -1113,6 +1299,45 @@ export default function InvoiceView() {
                 </button>
               </div>
             </div>
+
+            {/* Rating Section for Paid Invoices */}
+            {inv.status === 'Paid' && (
+              <div className="mt-2 pt-4 border-t border-dashed border-pink-100 flex flex-col gap-2 bg-pink-50/20 p-4 rounded-3xl text-right" dir="rtl">
+                <div className="flex justify-between items-center flex-row-reverse">
+                  <span className="text-xs font-black text-pink-900">تقييم الطلب والخدمة ⭐</span>
+                  {inv.rating ? (
+                    <span className="text-[10px] text-gray-400 font-bold">تم التقييم في {inv.ratingDate}</span>
+                  ) : (
+                    <span className="text-[10px] text-pink-700/70 font-bold">رأيكِ يسعدنا ويساعدنا على التحسين!</span>
+                  )}
+                </div>
+
+                {inv.rating ? (
+                  <div className="space-y-1.5 text-right flex flex-col items-end">
+                    <div className="flex items-center gap-1 flex-row-reverse">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-4 h-4 ${
+                            i < (inv.rating || 0)
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {inv.ratingComment && (
+                      <p className="text-[11px] text-gray-600 bg-white/70 p-2.5 rounded-xl border border-pink-100/30 w-full text-right" dir="rtl">
+                        "{inv.ratingComment}"
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <InvoiceRatingForm invoiceId={inv.invoiceId || inv.id || ''} />
+                )}
+              </div>
+            )}
+
           </div>
         ))}
 
@@ -1136,8 +1361,8 @@ export default function InvoiceView() {
                   <CreditCard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-sm text-gray-800">بوابة الدفع المعتمدة</h3>
-                  <p className="text-[10px] text-gray-400 font-bold">تسديد فوري عبر حساب الإدارة الموحد</p>
+                  <h3 className="font-extrabold text-sm text-gray-800">بطاقة الدفع المعتمدة (Mastercard)</h3>
+                  <p className="text-[10px] text-gray-400 font-bold">تسديد الفواتير والتحويل المباشر لحساب الإدارة</p>
                 </div>
               </div>
               <button 
@@ -1162,8 +1387,12 @@ export default function InvoiceView() {
                   </div>
                 </div>
 
-                {/* Gorgeous Interactive Virtual Credit Card (Read Only Manager Card) */}
-                <div className="relative w-full aspect-[1.586/1] rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-850 to-neutral-950 p-6 text-white shadow-xl overflow-hidden border border-white/10 select-none transition-all">
+                {/* Gorgeous Interactive Virtual Credit Card (Read Only Manager Card with copy functionality) */}
+                <div 
+                  onClick={handleCopyCard}
+                  title="انقري لنسخ رقم البطاقة"
+                  className="relative w-full aspect-[1.586/1] rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-850 to-neutral-950 p-6 text-white shadow-xl overflow-hidden border border-white/10 cursor-pointer select-none transition-all hover:scale-[1.02] active:scale-95 group"
+                >
                   <div className="absolute -right-10 -bottom-10 w-44 h-44 bg-pink-500/10 rounded-full blur-3xl"></div>
                   <div className="absolute top-4 left-4 flex items-center gap-1.5">
                     <div className="flex -space-x-2.5">
@@ -1189,32 +1418,48 @@ export default function InvoiceView() {
                     </div>
 
                     {/* Card Number Container */}
-                    <div className="my-2 text-center tracking-[0.16em] font-mono text-base md:text-lg font-bold text-white drop-shadow-md">
-                      5412 7500 1234 5678
+                    <div>
+                      <div className="my-1 text-center tracking-[0.16em] font-mono text-base md:text-lg font-bold text-white drop-shadow-md group-hover:text-pink-300 transition-colors">
+                        {customizations?.bankInfo?.superkey || '5412 7500 1234 5678'}
+                      </div>
+                      <span className="text-[8px] text-pink-300/80 block text-center mt-0.5 font-bold animate-pulse">
+                        (انقري على البطاقة لنسخ رقم الحساب)
+                      </span>
                     </div>
 
                     <div className="flex justify-between items-end font-mono">
                       <div className="text-right space-y-0.5 max-w-[70%]">
-                        <span className="text-[7px] text-white/40 block">Card Holder / اسم المديرة</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider truncate block text-white/90">HUDA AL-SULTANI</span>
+                        <span className="text-[7px] text-white/40 block">Card Holder / اسم صاحب البطاقة</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider truncate block text-white/90">
+                          {customizations?.bankInfo?.holderName || 'HUDA AL-SULTANI'}
+                        </span>
                       </div>
                       <div className="text-left space-y-0.5">
                         <span className="text-[7px] text-white/40 block">Expires / انتهاء</span>
-                        <span className="text-[10px] font-bold tracking-wider text-white/90">12/28</span>
+                        <span className="text-[10px] font-bold tracking-wider text-white/90">
+                          {customizations?.mastercardExpiry || '12/28'}
+                        </span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-pink-50/50 rounded-2xl p-4 border border-pink-100/30 text-[11px] text-pink-950 leading-relaxed font-semibold">
-                  <p className="font-extrabold text-xs mb-1">ℹ️ بوابة الدفع الرسمية الموحدة</p>
-                  يتم تمرير هذا الدفع مباشرة وتلقائياً عبر بطاقة الماستركارد الرسمية المعتمدة لمديرة إيرامو هدى السلطاني، دون الحاجة لإدخال بيانات بطاقتكِ الشخصية لضمان أمان تام.
+                {copiedNumber && (
+                  <div className="bg-emerald-500 text-white text-xs font-bold py-2 rounded-xl text-center animate-bounce shadow-sm">
+                    ✅ تم نسخ رقم بطاقة Master Card بنجاح!
+                  </div>
+                )}
+
+                <div className="bg-pink-50/50 rounded-2xl p-4 border border-pink-100/30 text-[11px] text-pink-950 leading-relaxed font-semibold space-y-1">
+                  <p className="font-extrabold text-xs mb-1">ℹ️ تعليمات الدفع والتحويل المباشر</p>
+                  <p>الرجاء نسخ رقم بطاقة الـ master card المعتمدة أعلاه وتحويل مبلغ الفاتورة الإجمالي إليها.</p>
+                  <p className="text-pink-700 font-extrabold">بعد إتمام عملية التحويل بنجاح، يرجى الضغط على زر التأكيد أدناه لتسجيل الفاتورة كـ مدفوعة فوراً.</p>
                 </div>
 
                 {/* Trust Seal */}
                 <div className="flex justify-center items-center gap-1.5 text-gray-400 text-[10px] font-bold">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>معالجة الدفع مشفرة بالكامل وآمنة بنسبة 100%</span>
+                  <span>معاملاتكِ مشفرة بالكامل وتحت رعاية إدارة إيرامو 🔒</span>
                 </div>
 
                 {/* Action Buttons */}
@@ -1227,12 +1472,12 @@ export default function InvoiceView() {
                     {isPaying ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        <span>جاري التحقق والدفع...</span>
+                        <span>جاري تأكيد الدفع والتحويل...</span>
                       </>
                     ) : (
                       <>
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>تأكيد ودفع {selectedInvoice.amount}</span>
+                        <Check className="w-4 h-4" />
+                        <span>لقد قمت بالتحويل وتأكيد الدفع</span>
                       </>
                     )}
                   </button>
@@ -1253,9 +1498,9 @@ export default function InvoiceView() {
                 </div>
                 
                 <div className="space-y-2">
-                  <h4 className="font-black text-lg text-emerald-800">تمت العملية بنجاح!</h4>
+                  <h4 className="font-black text-lg text-emerald-800">تم تأكيد التحويل بنجاح!</h4>
                   <p className="text-xs text-gray-500 leading-relaxed max-w-xs mx-auto">
-                    تم دفع مبلغ الفاتورة <span className="font-black text-gray-800">{selectedInvoice.amount}</span> بنجاح باستخدام بطاقة الماستركارد المعتمدة للمديرة.
+                    لقد قمتِ بتأكيد تحويل مبلغ الفاتورة <span className="font-black text-gray-800">{selectedInvoice.amount}</span>. سنقوم بمراجعة التحويل وتجهيز طلبكِ فوراً!
                   </p>
                 </div>
 
