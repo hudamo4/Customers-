@@ -89,15 +89,10 @@ export async function setupAnonymousUser(onUserReady: (user: User) => void) {
         if (credential.user) {
           onUserReady(credential.user);
         }
-      } catch (error) {
-        console.warn("Anonymous authentication restricted, using local storage fallback UID:", error);
-        let fallbackUid = localStorage.getItem('iramo_fallback_uid');
-        if (!fallbackUid) {
-          fallbackUid = 'user_' + Math.random().toString(36).substring(2, 11);
-          localStorage.setItem('iramo_fallback_uid', fallbackUid);
-        }
-        onUserReady({ uid: fallbackUid } as User);
-      }
+      catch (error) {
+  console.error("Firebase Authentication Error:", error);
+  throw error;
+}
     }
   });
 }
