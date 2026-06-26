@@ -1,10 +1,10 @@
 {
-  "apiKey": "AIzaSyDLguG4L-KLmXHVDphVtSWf-8XQa0RBkW8",
-  "authDomain": "gen-lang-client-0292030660.firebaseapp.com",
-  "projectId": "gen-lang-client-0292030660",
-  "storageBucket": "gen-lang-client-0292030660.firebasestorage.app",
-  "messagingSenderId": "237409576347",
-  "appId": "1:237409576347:web:a1d2adfc6ae5241f22ed3e",
-  "measurementId": "G-Q3P8JD15V4",
+  "apiKey": "AIzaSyCbnsNT-heyb_ihunn8YTjENl9tOIGF-bw",
+  "authDomain": "batool-lab.firebaseapp.com",
+  "projectId": "batool-lab",
+  "storageBucket": "batool-lab.firebasestorage.app",
+  "messagingSenderId": "234407909073",
+  "appId": "1:234407909073:web:b6780bcde3227eeafc57f0",
+  "measurementId": "G-9L3DWMNDHL",
   "firestoreDatabaseId": "(default)"
 }
