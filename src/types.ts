@@ -6,6 +6,10 @@ export interface UserProfile {
   points: number;
   membership: string;
   avatar: string;
+  walletBalance?: number;
+  savedCardNumber?: string;
+  savedCardHolder?: string;
+  savedCardExpiry?: string;
 }
 
 export interface JourneyStep {
@@ -84,10 +88,18 @@ export interface PresetProductCustomization {
   category: string;
 }
 
+export interface BannerItem {
+  id: string;
+  imageUrl: string;
+  title: string;
+  subtitle?: string;
+}
+
 export interface AppCustomizations {
   heroImageUrl: string;
   heroTitle: string;
   heroSubtitle: string;
+  banners?: BannerItem[];
   showStores: boolean;
   showLoyalty: boolean;
   showBanners: boolean;

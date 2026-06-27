@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 export default function ManagerShipments() {
-  const { shipments, setSelectedShipmentId, deleteShipment, updateShipmentStatus } = useApp();
+  const { shipments, setSelectedShipmentId, deleteShipment, updateShipmentStatus, addShipment } = useApp();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   
@@ -115,15 +115,12 @@ export default function ManagerShipments() {
       ]
     };
 
-    // Save to local storage for quick access
-    const saved = localStorage.getItem('iramo_shipments');
-    const existingList: Shipment[] = saved ? JSON.parse(saved) : [];
-    const updatedList = [newShipObj, ...existingList];
-    localStorage.setItem('iramo_shipments', JSON.stringify(updatedList));
+    await addShipment(newShipObj);
     
-    // Refresh page / state by forcing update if context supports it
-    // Wait for context helper if possible, or reload state
-    window.location.reload(); // Quick refresh to sync all components instantly
+    // Reset modal and inputs
+    setShowAddModal(false);
+    setNewTracking('');
+    setIsAdding(false);
   };
 
   const handleDeleteConfirm = async () => {

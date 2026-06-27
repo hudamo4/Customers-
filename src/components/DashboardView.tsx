@@ -12,6 +12,7 @@ import {
   Globe, 
   Sparkles, 
   ChevronRight, 
+  ChevronLeft,
   Calculator, 
   MessageSquare, 
   Search, 
@@ -35,6 +36,43 @@ export default function DashboardView() {
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
   const [presetSearch, setPresetSearch] = useState<string>('');
 
+  // Format title
+  const formattedTitle = customizations.heroTitle
+    ? customizations.heroTitle.replace('{name}', profile?.name || '')
+    : `مرحباً، ${profile?.name || ''}!`;
+
+  // Banners Carousel List
+  const activeBanners = (customizations.banners && customizations.banners.length > 0)
+    ? customizations.banners
+    : [
+        {
+          id: 'default',
+          imageUrl: customizations.heroImageUrl || "https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs",
+          title: formattedTitle,
+          subtitle: customizations.heroSubtitle || "أهلاً بكِ في عالم هدوشة وبطوط"
+        }
+      ];
+
+  const [currentBannerIdx, setCurrentBannerIdx] = useState(0);
+
+  React.useEffect(() => {
+    if (activeBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentBannerIdx((prev) => (prev + 1) % activeBanners.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [activeBanners.length]);
+
+  const handleNextBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentBannerIdx((prev) => (prev + 1) % activeBanners.length);
+  };
+
+  const handlePrevBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentBannerIdx((prev) => (prev - 1 + activeBanners.length) % activeBanners.length);
+  };
+
   // Take the first shipment as the featured active shipment
   const activeShipment = shipments.length > 0 ? shipments[0] : null;
 
@@ -52,11 +90,6 @@ export default function DashboardView() {
 
   const activeStores = customizations.supportedStores || [];
   const selectedStoreDetails = activeStores.find(st => st.name === selectedStore);
-
-  // Format title
-  const formattedTitle = customizations.heroTitle
-    ? customizations.heroTitle.replace('{name}', profile?.name || '')
-    : `مرحباً، ${profile?.name || ''}!`;
 
   // Calculator Helper functions
   const parseRate = (rateStr?: string): number => {
@@ -106,7 +139,7 @@ export default function DashboardView() {
   };
 
   const handleCalcShare = () => {
-    const msg = `مرحباً حدوشة وبطوط ✨\nأود الاستفسار عن تكلفة شحن طرد بوزن (${calcWeight.toFixed(1)} كغم) من متجر (${selectedStoreObj?.name || 'غير محدد'}) وتوصيله إلى محافظة (${calcProvince}).\nالوزن: ${calcWeight.toFixed(1)} كغم\nسعر شحن المتجر: ${selectedStoreObj?.rate || '0'} لكل كغم\nسعر توصيل المحافظة: ${selectedProvinceObj?.rate || '0'}\nالتكلفة الإجمالية المقدرة: ${totalCost.toLocaleString()} د.ع 💖`;
+    const msg = `مرحباً هدوشة وبطوط ✨\nأود الاستفسار عن تكلفة شحن طرد بوزن (${calcWeight.toFixed(1)} كغم) من متجر (${selectedStoreObj?.name || 'غير محدد'}) وتوصيله إلى محافظة (${calcProvince}).\nالوزن: ${calcWeight.toFixed(1)} كغم\nسعر شحن المتجر: ${selectedStoreObj?.rate || '0'} لكل كغم\nسعر توصيل المحافظة: ${selectedProvinceObj?.rate || '0'}\nالتكلفة الإجمالية المقدرة: ${totalCost.toLocaleString()} د.ع 💖`;
     window.open(getWhatsAppLink(msg), '_blank');
   };
 
@@ -133,21 +166,73 @@ export default function DashboardView() {
 
       {/* Hero Banner Section */}
       {customizations.showBanners && (
-        <section className="relative w-full aspect-[16/10] rounded-3xl overflow-hidden shadow-md">
-          <img
-            alt="Hadoosha & Batoot"
-            className="w-full h-full object-cover"
-            src={customizations.heroImageUrl || "https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs"}
-            referrerPolicy="no-referrer"
-          />
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 flex flex-col justify-end">
-            <p className="text-pink-300 font-semibold text-xs mb-1">
-              {customizations.heroSubtitle || "أهلاً بكِ في عالم حدوشة وبطوط"}
-            </p>
-            <h2 className="text-2xl font-extrabold text-white">
-              {formattedTitle}
-            </h2>
-          </div>
+        <section className="relative w-full aspect-[16/10] rounded-3xl overflow-hidden shadow-md group">
+          {activeBanners.map((banner, index) => {
+            const isActive = index === currentBannerIdx;
+            return (
+              <div
+                key={banner.id}
+                className={`absolute inset-0 transition-all duration-700 ease-in-out transform ${
+                  isActive ? 'opacity-100 scale-100 z-10' : 'opacity-0 scale-95 pointer-events-none z-0'
+                }`}
+              >
+                <img
+                  alt={banner.title}
+                  className="w-full h-full object-cover"
+                  src={banner.imageUrl}
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-6 flex flex-col justify-end text-right" dir="rtl">
+                  {banner.subtitle && (
+                    <p className="text-pink-300 font-semibold text-xs mb-1">
+                      {banner.subtitle.replace('{name}', profile?.name || '')}
+                    </p>
+                  )}
+                  <h2 className="text-xl md:text-2xl font-extrabold text-white">
+                    {banner.title.replace('{name}', profile?.name || '')}
+                  </h2>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Carousel Navigation Arrows */}
+          {activeBanners.length > 1 && (
+            <>
+              <button
+                onClick={handlePrevBanner}
+                className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 backdrop-blur-xs transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                title="السابق"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleNextBanner}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full z-20 backdrop-blur-xs transition-all opacity-0 group-hover:opacity-100 focus:opacity-100 cursor-pointer"
+                title="التالي"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+
+          {/* Dots Indicators */}
+          {activeBanners.length > 1 && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+              {activeBanners.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentBannerIdx(index);
+                  }}
+                  className={`w-2 h-2 rounded-full transition-all cursor-pointer ${
+                    index === currentBannerIdx ? 'bg-pink-500 w-4' : 'bg-white/60 hover:bg-white'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -487,7 +572,7 @@ export default function DashboardView() {
 
                 <button
                   onClick={() => {
-                    const orderMsg = `مرحباً حدوشة وبطوط ✨\nأود طلب المنتج الجاهز التالي المعروض في تطبيق إيرامو ستور:\nالمنتج: "${prod.name}"\nالسعر: ${prod.price.toLocaleString()} د.ع\nالرجاء تأكيد الحجز والطلب 💖`;
+                    const orderMsg = `مرحباً هدوشة وبطوط ✨\nأود طلب المنتج الجاهز التالي المعروض في تطبيق إيرامو ستور:\nالمنتج: "${prod.name}"\nالسعر: ${prod.price.toLocaleString()} د.ع\nالرجاء تأكيد الحجز والطلب 💖`;
                     window.open(getWhatsAppLink(orderMsg), '_blank');
                   }}
                   className="w-full bg-pink-50 text-pink-700 hover:bg-pink-100 font-extrabold text-[9px] py-2 rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer border border-pink-100/30"

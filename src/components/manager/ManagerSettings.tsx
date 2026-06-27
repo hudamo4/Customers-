@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { StoreCustomization, PresetProductCustomization } from '../../types';
+import { StoreCustomization, PresetProductCustomization, BannerItem } from '../../types';
 import { 
   Settings, 
   Eye, 
@@ -133,6 +133,47 @@ export default function ManagerSettings() {
     category: 'مكياج'
   });
 
+  // Multi-Banner management states
+  const [bannersList, setBannersList] = useState<BannerItem[]>(() => {
+    return customizations.banners && customizations.banners.length > 0
+      ? customizations.banners
+      : [
+          {
+            id: 'banner_1',
+            imageUrl: customizations.heroImageUrl || 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs',
+            title: 'مرحباً، {name}! ✨',
+            subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
+          }
+        ];
+  });
+  const [isBannerFormOpen, setIsBannerFormOpen] = useState<boolean>(false);
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [bannerForm, setBannerForm] = useState({
+    imageUrl: '',
+    title: '',
+    subtitle: ''
+  });
+  const [bannerToDelete, setBannerToDelete] = useState<BannerItem | null>(null);
+
+  // Keep local states in sync with database/customizations updates
+  React.useEffect(() => {
+    if (customizations.banners && customizations.banners.length > 0) {
+      setBannersList(customizations.banners);
+    }
+    if (customizations.heroSubtitle) setHeroSubtitle(customizations.heroSubtitle);
+    if (customizations.heroImageUrl) setHeroImageUrl(customizations.heroImageUrl);
+    if (customizations.homeFooterMascotUrl) setHomeFooterMascotUrl(customizations.homeFooterMascotUrl);
+    if (customizations.homeFooterMascotAuthor) setHomeFooterMascotAuthor(customizations.homeFooterMascotAuthor);
+    if (customizations.trackingBatootMascotUrl) setTrackingBatootMascotUrl(customizations.trackingBatootMascotUrl);
+    if (customizations.invoiceHadooshaImageUrl) setInvoiceHadooshaImageUrl(customizations.invoiceHadooshaImageUrl);
+    if (customizations.notificationsBannerUrl) setNotificationsBannerUrl(customizations.notificationsBannerUrl);
+    
+    if (customizations.showBanners !== undefined) setShowBanners(customizations.showBanners);
+    if (customizations.showStores !== undefined) setShowStores(customizations.showStores);
+    if (customizations.showLoyalty !== undefined) setShowLoyalty(customizations.showLoyalty);
+    if (customizations.showAnnouncement !== undefined) setShowAnnouncement(customizations.showAnnouncement);
+  }, [customizations]);
+
   // Confirmation Modal States
   const [showPaymentSaveConfirm, setShowPaymentSaveConfirm] = useState<boolean>(false);
   const [storeToDelete, setStoreToDelete] = useState<StoreCustomization | null>(null);
@@ -149,6 +190,7 @@ export default function ManagerSettings() {
         heroImageUrl,
         heroTitle,
         heroSubtitle,
+        banners: bannersList,
         showStores,
         showLoyalty,
         showBanners,
@@ -337,6 +379,60 @@ export default function ManagerSettings() {
     await updateCustomizations({ presetProducts: updatedPresets });
   };
 
+  // Banners actions
+  const handleOpenAddBanner = () => {
+    setBannerForm({ imageUrl: '', title: '', subtitle: '' });
+    setEditingBannerId(null);
+    setIsBannerFormOpen(true);
+  };
+
+  const handleOpenEditBanner = (banner: BannerItem) => {
+    setBannerForm({
+      imageUrl: banner.imageUrl,
+      title: banner.title,
+      subtitle: banner.subtitle || ''
+    });
+    setEditingBannerId(banner.id);
+    setIsBannerFormOpen(true);
+  };
+
+  const handleSaveBanner = async () => {
+    if (!bannerForm.imageUrl || !bannerForm.title) return;
+
+    let updatedBanners = [...bannersList];
+
+    if (editingBannerId) {
+      updatedBanners = updatedBanners.map(bn => 
+        bn.id === editingBannerId 
+          ? { ...bn, imageUrl: bannerForm.imageUrl, title: bannerForm.title, subtitle: bannerForm.subtitle } 
+          : bn
+      );
+    } else {
+      const newBanner: BannerItem = {
+        id: 'banner_' + Date.now(),
+        imageUrl: bannerForm.imageUrl,
+        title: bannerForm.title,
+        subtitle: bannerForm.subtitle
+      };
+      updatedBanners = [...updatedBanners, newBanner];
+    }
+
+    setBannersList(updatedBanners);
+    setIsBannerFormOpen(false);
+    setEditingBannerId(null);
+
+    // Save to firebase
+    await updateCustomizations({ banners: updatedBanners });
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    const updatedBanners = bannersList.filter(bn => bn.id !== id);
+    setBannersList(updatedBanners);
+    await updateCustomizations({ banners: updatedBanners });
+  };
+
   return (
     <div className="space-y-6 pb-24 animate-fade-in" id="manager-settings" dir="rtl">
       
@@ -387,36 +483,131 @@ export default function ManagerSettings() {
       {/* SUB-TAB 1: CLIENT HOME INTERFACE TEXTS AND BANNERS */}
       {activeSubTab === 'ui' && (
         <form onSubmit={handleSaveGeneralSettings} className="space-y-6">
-          {/* Cover & Hero Banner Image */}
+          {/* Cover & Hero Banner Image / Multiple Banners Manager */}
           <div className="bg-white border border-pink-100 rounded-3xl p-6 space-y-4 text-right">
-            <h3 className="font-black text-sm text-gray-800 flex items-center gap-1.5">
-              <ImageIcon className="w-4.5 h-4.5 text-pink-700" />
-              <span>بنر الواجهة الرئيسي والتصميم</span>
-            </h3>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={handleOpenAddBanner}
+                className="bg-pink-600 hover:bg-pink-700 text-white text-[10px] font-black px-3.5 py-2 rounded-xl flex items-center gap-1 transition-all shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>إضافة بنر جديد</span>
+              </button>
+              <h3 className="font-black text-sm text-gray-800 flex items-center gap-1.5">
+                <ImageIcon className="w-4.5 h-4.5 text-pink-700" />
+                <span>إدارة بنرات الواجهة المتحركة</span>
+              </h3>
+            </div>
 
-            <div className="space-y-3.5">
-              <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة الغلاف الترحيبي (URL)</label>
-                <input 
-                  type="text"
-                  value={heroImageUrl}
-                  onChange={(e) => setHeroImageUrl(e.target.value)}
-                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-3 rounded-xl font-mono text-left"
-                  placeholder="https://images.unsplash.com/..."
-                />
-                <span className="text-[9px] text-gray-400 mt-1 block">الصقي أي رابط صورة لتغيير البنر الترحيبي فوراً لجميع الزبائن.</span>
-              </div>
+            <span className="text-[10px] text-gray-400 block -mt-1">
+              أضيفي أو عدلي البنرات الترويجية المتحركة التي تظهر للزبائن في الصفحة الرئيسية للتطبيق. يمكنكِ ترتيب العروض والإعلانات بسهولة.
+            </span>
 
-              {heroImageUrl && (
-                <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-pink-100">
-                  <img src={heroImageUrl} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  <span className="absolute top-2 right-2 bg-pink-700 text-white font-bold text-[8px] px-2 py-0.5 rounded-full">معاينة بنر هدى السلطاني</span>
+            {/* Banners List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              {bannersList.map((banner) => (
+                <div key={banner.id} className="border border-pink-100/60 rounded-2xl p-3.5 space-y-3 bg-pink-50/20 relative group hover:border-pink-200 transition-all">
+                  <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-pink-100/40">
+                    <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                  <div className="space-y-1 pr-1">
+                    <h4 className="font-bold text-xs text-gray-800">{banner.title}</h4>
+                    {banner.subtitle && (
+                      <p className="text-[10px] text-gray-500">{banner.subtitle}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1 border-t border-dashed border-pink-100/40">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditBanner(banner)}
+                      className="text-pink-700 hover:text-pink-900 text-[10px] font-bold px-2 py-1 rounded-lg bg-pink-100/50 hover:bg-pink-100 transition-all cursor-pointer"
+                    >
+                      تعديل البنر
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBannerToDelete(banner)}
+                      className="text-red-600 hover:text-red-800 text-[10px] font-bold px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 transition-all cursor-pointer"
+                    >
+                      حذف
+                    </button>
+                  </div>
                 </div>
-              )}
+              ))}
+            </div>
 
-              <div className="grid grid-cols-2 gap-3">
+            {/* Add/Edit Banner Dialog/Form inline */}
+            {isBannerFormOpen && (
+              <div className="border border-pink-100 bg-pink-50/30 rounded-2xl p-5 space-y-4 animate-fade-in mt-4">
+                <h4 className="font-bold text-xs text-pink-900 border-b border-dashed border-pink-200 pb-2">
+                  {editingBannerId ? 'تعديل بنر' : 'إضافة بنر جديد للواجهة'}
+                </h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[9px] font-black text-gray-500 mb-1">رابط صورة البنر (URL) *</label>
+                    <input 
+                      type="text"
+                      value={bannerForm.imageUrl}
+                      onChange={(e) => setBannerForm({ ...bannerForm, imageUrl: e.target.value })}
+                      className="w-full bg-white border border-pink-100 focus:border-pink-300 text-xs px-4 py-2.5 rounded-xl font-mono text-left font-bold text-gray-700"
+                      placeholder="https://images.unsplash.com/..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[9px] font-black text-gray-500 mb-1">العنوان الرئيسي للبنر *</label>
+                      <input 
+                        type="text"
+                        value={bannerForm.title}
+                        onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })}
+                        className="w-full bg-white border border-pink-100 focus:border-pink-300 text-xs px-4 py-2.5 rounded-xl font-bold"
+                        placeholder="خصومات وعروض مميزة!"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-gray-500 mb-1">العنوان الفرعي للبنر (اختياري)</label>
+                      <input 
+                        type="text"
+                        value={bannerForm.subtitle}
+                        onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                        className="w-full bg-white border border-pink-100 focus:border-pink-300 text-xs px-4 py-2.5 rounded-xl"
+                        placeholder="خصم 30% على مستحضرات التجميل"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBannerFormOpen(false);
+                        setEditingBannerId(null);
+                      }}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-black px-4 py-2 rounded-xl transition-all cursor-pointer"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveBanner}
+                      className="bg-pink-700 hover:bg-pink-800 text-white text-[10px] font-black px-4 py-2 rounded-xl transition-all cursor-pointer"
+                    >
+                      حفظ البنر
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Backwards Compatibility / Other General UI Texts */}
+            <div className="pt-4 border-t border-dashed border-pink-100 space-y-4">
+              <h4 className="font-bold text-xs text-gray-700">نصوص الواجهة الافتراضية والترحيبية</h4>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">العنوان الرئيسي</label>
+                  <label className="block text-[10px] font-black text-gray-500 mb-1">العنوان الترحيبي الافتراضي</label>
                   <input 
                     type="text"
                     value={heroTitle}
@@ -428,13 +619,13 @@ export default function ManagerSettings() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">العنوان الفرعي</label>
+                  <label className="block text-[10px] font-black text-gray-500 mb-1">العنوان الفرعي الافتراضي</label>
                   <input 
                     type="text"
                     value={heroSubtitle}
                     onChange={(e) => setHeroSubtitle(e.target.value)}
                     className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-semibold"
-                    placeholder="أهلاً بكِ في عالم حدوشة وبطوط"
+                    placeholder="أهلاً بكِ في عالم هدوشة وبطوط"
                   />
                 </div>
               </div>
@@ -445,7 +636,7 @@ export default function ManagerSettings() {
                   type="text"
                   value={invoiceHadooshaImageUrl}
                   onChange={(e) => setInvoiceHadooshaImageUrl(e.target.value)}
-                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-3 rounded-xl font-mono text-left"
+                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-3 rounded-xl font-mono text-left font-bold text-gray-700"
                   placeholder="رابط الصورة بصفحة الفاتورة"
                 />
                 <span className="text-[9px] text-gray-400 mt-1 block">يمكنكِ تغيير الصورة الترحيبية للعميل في صفحة الفواتير.</span>
@@ -1362,7 +1553,7 @@ export default function ManagerSettings() {
               <AlertTriangle className="w-7 h-7" />
             </div>
             <div>
-              <h4 className="font-black text-gray-800 text-sm">حذف منتج من المعرض؟</h4>
+              <h4 className="font-black text-gray-800 text-sm">حذف منتج من المعرض?</h4>
               <p className="text-[11px] text-gray-500 mt-2 leading-relaxed font-bold">
                 هل أنتِ متأكدة من حذف منتج <span className="text-pink-700 font-extrabold">"{presetToDelete.name}"</span>؟
                 سيتم إزالة هذا المنتج من معرض المنتجات الجاهزة لإدخال الفواتير السريعة.
@@ -1380,6 +1571,41 @@ export default function ManagerSettings() {
               </button>
               <button 
                 onClick={() => setPresetToDelete(null)}
+                className="flex-1 bg-gray-100 text-gray-500 text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer"
+              >
+                إلغاء وتراجع ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Banner Deletion */}
+      {bannerToDelete && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+            <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto border border-red-100/50">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">حذف البنر الإعلاني؟</h4>
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed font-bold">
+                هل أنتِ متأكدة من حذف البنر <span className="text-pink-700 font-extrabold">"{bannerToDelete.title}"</span>؟
+                سيتم إزالة هذا البنر فوراً من شريط العرض المتحرك في الواجهة الرئيسية للزبائن.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                onClick={() => {
+                  handleDeleteBanner(bannerToDelete.id);
+                  setBannerToDelete(null);
+                }}
+                className="flex-1 bg-red-600 text-white text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-md animate-pulse"
+              >
+                نعم، احذفي البنر 🗑️
+              </button>
+              <button 
+                onClick={() => setBannerToDelete(null)}
                 className="flex-1 bg-gray-100 text-gray-500 text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer"
               >
                 إلغاء وتراجع ✕

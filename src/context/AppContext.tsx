@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
-import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, setupAnonymousUser, seedInitialDataIfEmpty } from '../lib/firebase';
 import { UserProfile, Shipment, Invoice, NotificationDetail, AppCustomizations } from '../types';
 
@@ -18,10 +18,21 @@ interface AppContextType {
   selectedShipmentId: string | null;
   setSelectedShipmentId: (id: string | null) => void;
   loading: boolean;
-  updateProfile: (name: string, phone: string, city: string) => Promise<void>;
+  appMode: 'customer' | 'manager';
+  setAppMode: (mode: 'customer' | 'manager') => void;
+  updateProfile: (
+    name: string,
+    phone: string,
+    city: string,
+    walletBalance?: number,
+    savedCardNumber?: string,
+    savedCardHolder?: string,
+    savedCardExpiry?: string
+  ) => Promise<void>;
   markAllNotificationsAsRead: () => Promise<void>;
   markNotificationAsRead: (notifId: string) => Promise<void>;
   redeemPoints: (amount: number) => Promise<void>;
+  addShipment: (shipment: Shipment) => Promise<void>;
   deleteShipment: (id: string) => Promise<void>;
   addNotification: (notif: Omit<NotificationDetail, 'id' | 'userId'>) => Promise<void>;
   updateShipmentStatus: (shipmentId: string, newStatus: string) => Promise<void>;
@@ -43,7 +54,11 @@ const DEFAULT_PROFILE: UserProfile = {
   city: 'بغداد، العراق',
   points: 1250,
   membership: 'عضوية ذهبية',
-  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'
+  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE',
+  walletBalance: 250000,
+  savedCardNumber: '5412 7500 1234 5678',
+  savedCardHolder: 'AMNA AL-IRAQ',
+  savedCardExpiry: '12/28'
 };
 
 const DEFAULT_SHIPMENTS: Shipment[] = [
@@ -127,7 +142,27 @@ const DEFAULT_NOTIFICATIONS: NotificationDetail[] = [
 export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
   heroImageUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs',
   heroTitle: 'مرحباً، {name}!',
-  heroSubtitle: 'أهلاً بكِ في عالم حدوشة وبطوط',
+  heroSubtitle: 'أهلاً بكِ في عالم هدوشة وبطوط',
+  banners: [
+    {
+      id: 'banner_1',
+      imageUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs',
+      title: 'مرحباً، {name}! ✨',
+      subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
+    },
+    {
+      id: 'banner_2',
+      imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800',
+      title: 'شحن مخفض من Shein الكويت! 🛍️',
+      subtitle: 'فقط 5,000 د.ع لكل كغم مع شحن جوي سريع!'
+    },
+    {
+      id: 'banner_3',
+      imageUrl: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=800',
+      title: 'أقوى مستحضرات التجميل الأصلية 💄',
+      subtitle: 'شحن مضمون 100% من أشهر الماركات العالمية لباب بيتكِ'
+    }
+  ],
   showStores: true,
   showLoyalty: true,
   showBanners: true,
@@ -304,13 +339,13 @@ export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
   homeFooterMascotUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw',
   homeFooterMascotQuote: '"عزيزتي {name}، جمالك يبدأ من اهتمامك بنفسك. نحن هنا دائماً لنوفر لكِ الأفضل في شحن وتسوق متميز!"',
   homeFooterMascotAuthor: 'هدوشة وبطوط',
-  trackingBatootMascotUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIQxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8',
+  trackingBatootMascotUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8',
   trackingBatootQuote: '"أتابع تحركاتها عبر الخط الجوي لحظة بلحظة لضمان وصولها الفاخر والأنيق إليكِ!"',
   trackingSupportAgentUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU',
   trackingSupportTitle: 'هل تحتاجين لمساعدة؟',
   trackingSupportQuote: 'خبراء الدعم اللوجستي متواجدون لمساعدتكِ طوال اليوم في تتبع الشحنات وحساب دقيق للأوزان.',
   invoiceInstructionText: 'الرجاء تحويل مبلغ الفاتورة الإجمالي إلى حساب المحفظة المعتمدة أدناه وإرفاق صورة التحويل أو إشعار الدفع لتأكيد الشحن الفوري.',
-  notificationsBannerUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=800',
+  notificationsBannerUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs',
   notificationsWelcomeText: 'مركز الإشعارات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨',
   invoiceHadooshaImageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ',
   mastercardExpiry: '12/28',
@@ -320,76 +355,18 @@ export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  
-  // High-resilience states pre-loaded from localStorage
-  const [profile, setProfile] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('iramo_profile');
-    return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-  });
-  
-  const [shipments, setShipments] = useState<Shipment[]>(() => {
-    const saved = localStorage.getItem('iramo_shipments');
-    return saved ? JSON.parse(saved) : DEFAULT_SHIPMENTS;
-  });
-  
-  const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    const saved = localStorage.getItem('iramo_invoices');
-    return saved ? JSON.parse(saved) : DEFAULT_INVOICES;
-  });
-  
-  const [notifications, setNotifications] = useState<NotificationDetail[]>(() => {
-    const saved = localStorage.getItem('iramo_notifications');
-    return saved ? JSON.parse(saved) : DEFAULT_NOTIFICATIONS;
-  });
-
-  const [customizations, setCustomizations] = useState<AppCustomizations>(() => {
-    const saved = localStorage.getItem('iramo_customizations');
-    return saved ? JSON.parse(saved) : DEFAULT_CUSTOMIZATIONS;
-  });
+  const [profile, setProfile] = useState<UserProfile | null>(DEFAULT_PROFILE);
+  const [shipments, setShipments] = useState<Shipment[]>(DEFAULT_SHIPMENTS);
+  const [invoices, setInvoices] = useState<Invoice[]>(DEFAULT_INVOICES);
+  const [notifications, setNotifications] = useState<NotificationDetail[]>(DEFAULT_NOTIFICATIONS);
+  const [customizations, setCustomizations] = useState<AppCustomizations>(DEFAULT_CUSTOMIZATIONS);
 
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [selectedShipmentId, setSelectedShipmentId] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-
-  // Sync state helpers to localStorage for persistent changes
-  const saveProfileLocally = (p: UserProfile) => {
-    setProfile(p);
-    localStorage.setItem('iramo_profile', JSON.stringify(p));
-  };
-
-  const saveShipmentsLocally = (s: Shipment[]) => {
-    setShipments(s);
-    localStorage.setItem('iramo_shipments', JSON.stringify(s));
-  };
-
-  const saveInvoicesLocally = (i: Invoice[]) => {
-    setInvoices(i);
-    localStorage.setItem('iramo_invoices', JSON.stringify(i));
-  };
-
-  const saveNotificationsLocally = (n: NotificationDetail[]) => {
-    // Sort notifications
-    const sorted = [...n].sort((a, b) => {
-      if (a.read === b.read) return 0;
-      return a.read ? 1 : -1;
-    });
-    setNotifications(sorted);
-    localStorage.setItem('iramo_notifications', JSON.stringify(sorted));
-  };
-
-  const saveCustomizationsLocally = (c: AppCustomizations) => {
-    setCustomizations(c);
-    localStorage.setItem('iramo_customizations', JSON.stringify(c));
-  };
+  const [appMode, setAppMode] = useState<'customer' | 'manager'>('customer');
 
   useEffect(() => {
-    // Initialize defaults into local storage if completely fresh
-    if (!localStorage.getItem('iramo_profile')) saveProfileLocally(DEFAULT_PROFILE);
-    if (!localStorage.getItem('iramo_shipments')) saveShipmentsLocally(DEFAULT_SHIPMENTS);
-    if (!localStorage.getItem('iramo_invoices')) saveInvoicesLocally(DEFAULT_INVOICES);
-    if (!localStorage.getItem('iramo_notifications')) saveNotificationsLocally(DEFAULT_NOTIFICATIONS);
-    if (!localStorage.getItem('iramo_customizations')) saveCustomizationsLocally(DEFAULT_CUSTOMIZATIONS);
-
     // Setup auth and attempt real-time DB sync
     setupAnonymousUser(async (currentUser) => {
       setUser(currentUser);
@@ -398,19 +375,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Attempt to seed Firestore but gracefully ignore permission/access failures
       try {
         await seedInitialDataIfEmpty(currentUser.uid);
-        // await runMigrations(currentUser.uid);
       } catch (err) {
-        console.warn("Firestore seeding/migration skipped due to credentials or permission restrictions:", err);
+        console.warn("Firestore seeding skipped:", err);
       }
 
       // Real-time listener for user profile
       const userDocRef = doc(db, 'users', currentUser.uid);
       const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          saveProfileLocally(docSnap.data() as UserProfile);
+          const data = docSnap.data() as UserProfile;
+          const targetAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE';
+          if (!data.avatar || data.avatar.includes('chat-attachment') || data.avatar !== targetAvatar) {
+            updateDoc(userDocRef, { avatar: targetAvatar }).catch((e) =>
+              console.warn("Auto-updating profile avatar failed:", e)
+            );
+          }
+          setProfile(data);
         }
       }, (error) => {
-        console.warn("Firestore Profile real-time sync failed (falling back to offline local state):", error.message);
+        console.warn("Firestore Profile real-time sync failed:", error.message);
       });
 
       // Real-time listener for shipments
@@ -424,10 +407,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           list.push({ id: doc.id, ...doc.data() } as Shipment);
         });
         if (list.length > 0) {
-          saveShipmentsLocally(list);
+          setShipments(list);
         }
       }, (error) => {
-        console.warn("Firestore Shipments real-time sync failed (falling back to offline local state):", error.message);
+        console.warn("Firestore Shipments real-time sync failed:", error.message);
       });
 
       // Real-time listener for invoices
@@ -441,10 +424,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           list.push({ id: doc.id, ...doc.data() } as Invoice);
         });
         if (list.length > 0) {
-          saveInvoicesLocally(list);
+          setInvoices(list);
         }
       }, (error) => {
-        console.warn("Firestore Invoices real-time sync failed (falling back to offline local state):", error.message);
+        console.warn("Firestore Invoices real-time sync failed:", error.message);
       });
 
       // Real-time listener for notifications
@@ -458,17 +441,155 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           list.push({ id: doc.id, ...doc.data() } as NotificationDetail);
         });
         if (list.length > 0) {
-          saveNotificationsLocally(list);
+          // Sort notifications
+          const sorted = [...list].sort((a, b) => {
+            if (a.read === b.read) return 0;
+            return a.read ? 1 : -1;
+          });
+          setNotifications(sorted);
         }
       }, (error) => {
-        console.warn("Firestore Notifications real-time sync failed (falling back to offline local state):", error.message);
+        console.warn("Firestore Notifications real-time sync failed:", error.message);
       });
 
       // Real-time listener for customizations
       const custDocRef = doc(db, 'settings', 'customizations');
       const unsubscribeCustomizations = onSnapshot(custDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          saveCustomizationsLocally(docSnap.data() as AppCustomizations);
+          const rawData = docSnap.data() as AppCustomizations;
+          let data = { ...rawData };
+          let healed = false;
+
+          // 1. Correct spelling: "حدوشة" to "هدوشة" in texts
+          if (data.heroSubtitle && data.heroSubtitle.includes('حدوشة')) {
+            data.heroSubtitle = data.heroSubtitle.replace(/حدوشة/g, 'هدوشة');
+            healed = true;
+          }
+          if (data.homeFooterMascotAuthor && data.homeFooterMascotAuthor.includes('حدوشة')) {
+            data.homeFooterMascotAuthor = data.homeFooterMascotAuthor.replace(/حدوشة/g, 'هدوشة');
+            healed = true;
+          }
+
+          // 2. Fallback default cute Pixar Hadoosha & Batoot mascot image URLs if empty
+          const originalHero = 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs';
+          const originalHomeMascot = 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw';
+          const originalTrackingMascot = 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8';
+          const originalInvoiceImage = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ';
+          const originalNotifBanner = 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs';
+
+          if (!data.heroImageUrl) {
+            data.heroImageUrl = originalHero;
+            healed = true;
+          }
+          if (!data.homeFooterMascotUrl) {
+            data.homeFooterMascotUrl = originalHomeMascot;
+            healed = true;
+          }
+          if (!data.trackingBatootMascotUrl) {
+            data.trackingBatootMascotUrl = originalTrackingMascot;
+            healed = true;
+          }
+          if (!data.invoiceHadooshaImageUrl) {
+            data.invoiceHadooshaImageUrl = originalInvoiceImage;
+            healed = true;
+          }
+          if (!data.notificationsBannerUrl) {
+            data.notificationsBannerUrl = originalNotifBanner;
+            healed = true;
+          }
+
+          // Force-heal toggle switches to show all mascot content in client view
+          if (data.showBanners !== true) {
+            data.showBanners = true;
+            healed = true;
+          }
+          if (data.showStores !== true) {
+            data.showStores = true;
+            healed = true;
+          }
+          if (data.showLoyalty !== true) {
+            data.showLoyalty = true;
+            healed = true;
+          }
+          if (data.showAnnouncement !== true) {
+            data.showAnnouncement = true;
+            healed = true;
+          }
+
+          // 3. Fallback/heal banners list for "حدوشة" spelling, keep custom images
+          if (data.banners) {
+            let bannerHealed = false;
+            const healedBanners = data.banners.map(bn => {
+              let updatedBn = { ...bn };
+              if (updatedBn.id === 'banner_1') {
+                if (!updatedBn.imageUrl) {
+                  updatedBn.imageUrl = originalHero;
+                  bannerHealed = true;
+                }
+                if (updatedBn.subtitle && updatedBn.subtitle.includes('حدوشة')) {
+                  updatedBn.subtitle = updatedBn.subtitle.replace(/حدوشة/g, 'هدوشة');
+                  bannerHealed = true;
+                }
+              }
+              if (updatedBn.title && updatedBn.title.includes('حدوشة')) {
+                updatedBn.title = updatedBn.title.replace(/حدوشة/g, 'هدوشة');
+                bannerHealed = true;
+              }
+              if (updatedBn.subtitle && updatedBn.subtitle.includes('حدوشة')) {
+                updatedBn.subtitle = updatedBn.subtitle.replace(/حدوشة/g, 'هدوشة');
+                bannerHealed = true;
+              }
+              return updatedBn;
+            });
+
+            // Ensure banner_1 is present
+            const hasBanner1 = healedBanners.some(bn => bn.id === 'banner_1');
+            if (!hasBanner1) {
+              healedBanners.unshift({
+                id: 'banner_1',
+                imageUrl: originalHero,
+                title: 'مرحباً، {name}! ✨',
+                subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
+              });
+              bannerHealed = true;
+            }
+
+            if (bannerHealed) {
+              data.banners = healedBanners;
+              healed = true;
+            }
+          } else {
+            data.banners = [
+              {
+                id: 'banner_1',
+                imageUrl: originalHero,
+                title: 'مرحباً، {name}! ✨',
+                subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
+              },
+              {
+                id: 'banner_2',
+                imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800',
+                title: 'شحن مخفض من Shein الكويت! 🛍️',
+                subtitle: 'فقط 5,000 د.ع لكل كغم مع شحن جوي سريع!'
+              },
+              {
+                id: 'banner_3',
+                imageUrl: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=800',
+                title: 'أقوى مستحضرات التجميل الأصلية 💄',
+                subtitle: 'شحن مضمون 100% من أشهر الماركات العالمية لباب بيتكِ'
+              }
+            ];
+            healed = true;
+          }
+
+          if (healed) {
+            setCustomizations(data);
+            setDoc(custDocRef, data, { merge: true }).catch(e => {
+              console.warn("Could not heal customizations in firestore:", e);
+            });
+            return;
+          }
+          setCustomizations(data);
         } else {
           // Seed the document if it doesn't exist
           setDoc(custDocRef, DEFAULT_CUSTOMIZATIONS).catch(e => {
@@ -476,7 +597,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
       }, (error) => {
-        console.warn("Firestore Customizations real-time sync failed (falling back to offline local state):", error.message);
+        console.warn("Firestore Customizations real-time sync failed:", error.message);
       });
 
       return () => {
@@ -489,28 +610,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
-  const updateProfile = async (name: string, phone: string, city: string) => {
-    // 1. Update locally first for instantaneous UX
+  const updateProfile = async (
+    name: string,
+    phone: string,
+    city: string,
+    walletBalance?: number,
+    savedCardNumber?: string,
+    savedCardHolder?: string,
+    savedCardExpiry?: string
+  ) => {
+    // 1. Update state immediately for instant feedback
     if (profile) {
-      saveProfileLocally({ ...profile, name, phone, city });
+      setProfile({
+        ...profile,
+        name,
+        phone,
+        city,
+        walletBalance: walletBalance !== undefined ? walletBalance : profile.walletBalance,
+        savedCardNumber: savedCardNumber !== undefined ? savedCardNumber : profile.savedCardNumber,
+        savedCardHolder: savedCardHolder !== undefined ? savedCardHolder : profile.savedCardHolder,
+        savedCardExpiry: savedCardExpiry !== undefined ? savedCardExpiry : profile.savedCardExpiry,
+      });
     }
 
-    // 2. Try to sync to Firestore if signed in & permissions allow
+    // 2. Sync to Firestore
     if (!user) return;
     const userDocRef = doc(db, 'users', user.uid);
     try {
-      await updateDoc(userDocRef, { name, phone, city });
+      const updates: any = { name, phone, city };
+      if (walletBalance !== undefined) updates.walletBalance = walletBalance;
+      if (savedCardNumber !== undefined) updates.savedCardNumber = savedCardNumber;
+      if (savedCardHolder !== undefined) updates.savedCardHolder = savedCardHolder;
+      if (savedCardExpiry !== undefined) updates.savedCardExpiry = savedCardExpiry;
+      await updateDoc(userDocRef, updates);
     } catch (error) {
-      console.warn("Firestore Profile update skipped (saved locally only):", error);
+      console.warn("Firestore Profile update failed:", error);
     }
   };
 
   const markAllNotificationsAsRead = async () => {
-    // 1. Update locally first
+    // 1. Update state immediately
     const updated = notifications.map(n => ({ ...n, read: true }));
-    saveNotificationsLocally(updated);
+    setNotifications(updated);
 
-    // 2. Try to sync to Firestore
+    // 2. Sync to Firestore
     if (!user) return;
     try {
       for (const notif of notifications) {
@@ -520,14 +663,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     } catch (error) {
-      console.warn("Firestore Notifications status update skipped (saved locally only):", error);
+      console.warn("Firestore Notifications update failed:", error);
     }
   };
 
   const markNotificationAsRead = async (notifId: string) => {
-    // 1. Update locally
+    // 1. Update state immediately
     const updated = notifications.map(n => n.id === notifId ? { ...n, read: true } : n);
-    saveNotificationsLocally(updated);
+    setNotifications(updated);
 
     // 2. Sync to Firestore
     if (!user) return;
@@ -535,41 +678,60 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const notifDocRef = doc(db, 'notifications', notifId);
       await updateDoc(notifDocRef, { read: true });
     } catch (error) {
-      console.warn("Firestore Notification status update skipped (saved locally only):", error);
+      console.warn("Firestore Notification update failed:", error);
     }
   };
 
   const redeemPoints = async (amount: number) => {
     if (!profile || profile.points < amount) return;
 
-    // 1. Update locally first
-    saveProfileLocally({ ...profile, points: profile.points - amount });
+    // 1. Update state immediately
+    setProfile({ ...profile, points: profile.points - amount });
 
-    // 2. Try to sync to Firestore
+    // 2. Sync to Firestore
     if (!user) return;
     const userDocRef = doc(db, 'users', user.uid);
     try {
       await updateDoc(userDocRef, { points: profile.points - amount });
     } catch (error) {
-      console.warn("Firestore Loyalty Points sync skipped (saved locally only):", error);
+      console.warn("Firestore Loyalty Points sync failed:", error);
+    }
+  };
+
+  const addShipment = async (shipment: Shipment) => {
+    if (!user) return;
+    const cleanShipmentObj = {
+      ...shipment,
+      userId: user.uid,
+      createdAt: serverTimestamp()
+    };
+    
+    // Add locally for instant UI update
+    setShipments(prev => [cleanShipmentObj, ...prev]);
+
+    try {
+      const docRef = doc(db, 'shipments', shipment.id || `shipment_${Date.now()}`);
+      await setDoc(docRef, cleanShipmentObj);
+    } catch (error) {
+      console.warn("Firestore Shipment creation failed:", error);
     }
   };
 
   const deleteShipment = async (id: string) => {
-    // 1. Update locally first
+    // Update state immediately
     const updated = shipments.filter(s => s.id !== id);
-    saveShipmentsLocally(updated);
+    setShipments(updated);
     if (selectedShipmentId === id) {
       setSelectedShipmentId(updated[0]?.id || null);
     }
 
-    // 2. Try to sync to Firestore
+    // Sync to Firestore
     if (!user) return;
     try {
       const docRef = doc(db, 'shipments', id);
       await deleteDoc(docRef);
     } catch (error) {
-      console.warn("Firestore Shipment deletion skipped (saved locally only):", error);
+      console.warn("Firestore Shipment deletion failed:", error);
     }
   };
 
@@ -579,22 +741,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `notif_${Date.now()}`,
       userId: user?.uid || 'local_user',
     };
-    const updated = [newNotif, ...notifications];
-    saveNotificationsLocally(updated);
+    setNotifications(prev => [newNotif, ...prev]);
 
-    // Try to sync to Firestore if signed in
     if (!user) return;
     try {
-      await addDoc(collection(db, 'notifications'), newNotif);
+      await addDoc(collection(db, 'notifications'), {
+        ...newNotif,
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
     } catch (error) {
-      console.warn("Firestore Notification creation skipped (saved locally only):", error);
+      console.warn("Firestore Notification creation failed:", error);
     }
   };
 
   const updateShipmentStatus = async (shipmentId: string, newStatus: string) => {
     const updated = shipments.map(s => {
       if (s.id === shipmentId) {
-        // Update status and append new journey checkpoint
         const currentJourney = s.journey || [];
         const newJourneyStep = {
           title: newStatus,
@@ -613,9 +776,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return s;
     });
-    saveShipmentsLocally(updated);
+    setShipments(updated);
 
-    // Try to sync to Firestore
     if (!user) return;
     try {
       const shipmentDocRef = doc(db, 'shipments', shipmentId);
@@ -624,7 +786,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         journey: updated.find(s => s.id === shipmentId)?.journey
       });
     } catch (error) {
-      console.warn("Firestore Shipment status update skipped:", error);
+      console.warn("Firestore Shipment status update failed:", error);
     }
   };
 
@@ -632,26 +794,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const invoice = invoices.find(inv => inv.invoiceId === invoiceId || inv.id === invoiceId);
     if (!invoice) return;
 
-    // 1. Update locally
+    // 1. Update state immediately
     const updatedInvoices = invoices.map(inv => {
       if (inv.invoiceId === invoiceId || inv.id === invoiceId) {
         return { ...inv, status: 'Paid' as const };
       }
       return inv;
     });
-    saveInvoicesLocally(updatedInvoices);
+    setInvoices(updatedInvoices);
 
     // Give points: award 150 loyalty points on payment
     if (profile) {
       const updatedProfile = { ...profile, points: profile.points + 150 };
-      saveProfileLocally(updatedProfile);
+      setProfile(updatedProfile);
       
       if (user) {
         try {
           const userDocRef = doc(db, 'users', user.uid);
           await updateDoc(userDocRef, { points: updatedProfile.points });
         } catch (e) {
-          console.warn("Firestore profile points update skipped:", e);
+          console.warn("Firestore profile points update failed:", e);
         }
       }
     }
@@ -670,12 +832,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 2. Sync to Firestore
     if (!user) return;
     try {
-      if (invoice.id && !invoice.id.startsWith('local_')) {
+      if (invoice.id) {
         const docRef = doc(db, 'invoices', invoice.id);
         await updateDoc(docRef, { status: 'Paid' });
       }
     } catch (error) {
-      console.warn("Firestore Invoice status update skipped (saved locally only):", error);
+      console.warn("Firestore Invoice status update failed:", error);
     }
   };
 
@@ -684,27 +846,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...invoice,
       userId: user?.uid || 'local_user',
     };
-    const updated = [newInvoice, ...invoices];
-    saveInvoicesLocally(updated);
+    setInvoices(prev => [newInvoice, ...prev]);
 
     if (!user) return;
     try {
-      await addDoc(collection(db, 'invoices'), newInvoice);
+      await addDoc(collection(db, 'invoices'), {
+        ...newInvoice,
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      });
     } catch (error) {
-      console.warn("Firestore Invoice creation skipped (saved locally only):", error);
+      console.warn("Firestore Invoice creation failed:", error);
     }
   };
 
   const deleteInvoice = async (id: string) => {
-    const updated = invoices.filter(inv => inv.id !== id && inv.invoiceId !== id);
-    saveInvoicesLocally(updated);
+    setInvoices(prev => prev.filter(inv => inv.id !== id && inv.invoiceId !== id));
 
     if (!user) return;
     try {
       const docRef = doc(db, 'invoices', id);
       await deleteDoc(docRef);
     } catch (error) {
-      console.warn("Firestore Invoice deletion skipped (saved locally only):", error);
+      console.warn("Firestore Invoice deletion failed:", error);
     }
   };
 
@@ -721,14 +885,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return inv;
     });
-    saveInvoicesLocally(updatedInvoices);
+    setInvoices(updatedInvoices);
 
     const invoice = invoices.find(inv => inv.invoiceId === invoiceId || inv.id === invoiceId);
     if (!invoice) return;
 
     if (!user) return;
     try {
-      if (invoice.id && !invoice.id.startsWith('local_')) {
+      if (invoice.id) {
         const docRef = doc(db, 'invoices', invoice.id);
         await updateDoc(docRef, {
           rating,
@@ -743,25 +907,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateCustomizations = async (cust: Partial<AppCustomizations>) => {
     const updated = { ...customizations, ...cust };
-    saveCustomizationsLocally(updated);
+    setCustomizations(updated);
 
     try {
       const custDocRef = doc(db, 'settings', 'customizations');
       await setDoc(custDocRef, updated, { merge: true });
     } catch (error) {
-      console.warn("Firestore Customizations update skipped (saved locally only):", error);
+      console.warn("Firestore Customizations update failed:", error);
     }
   };
 
   const updateAvatar = async (avatar: string) => {
     if (profile) {
-      saveProfileLocally({ ...profile, avatar });
+      setProfile({ ...profile, avatar });
       if (user) {
         try {
           const userDocRef = doc(db, 'users', user.uid);
           await updateDoc(userDocRef, { avatar });
         } catch (error) {
-          console.warn("Firestore Avatar update skipped (saved locally only):", error);
+          console.warn("Firestore Avatar update failed:", error);
         }
       }
     }
@@ -781,10 +945,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedShipmentId,
         setSelectedShipmentId,
         loading,
+        appMode,
+        setAppMode,
         updateProfile,
         markAllNotificationsAsRead,
         markNotificationAsRead,
         redeemPoints,
+        addShipment,
         deleteShipment,
         addNotification,
         updateShipmentStatus,

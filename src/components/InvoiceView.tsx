@@ -294,14 +294,14 @@ const BankIcon = ({ className }: { className?: string }) => (
 );
 
 export default function InvoiceView() {
-  const { profile, invoices, payInvoice, shipments, customizations, updateCustomizations } = useApp();
+  const { profile, invoices, payInvoice, shipments, customizations, updateCustomizations, appMode } = useApp();
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [exportingAll, setExportingAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Paid' | 'Pending'>('All');
 
   // Manager image edit states
-  const isManager = localStorage.getItem('iramo_app_mode') === 'manager';
+  const isManager = appMode === 'manager';
   const [isEditingImage, setIsEditingImage] = useState(false);
   const [newImageUrl, setNewImageUrl] = useState(customizations?.invoiceHadooshaImageUrl || '');
 
@@ -326,14 +326,22 @@ export default function InvoiceView() {
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [cardNumber, setCardNumber] = useState<string>(() => {
-    return localStorage.getItem('iramo_saved_card_number') || '5412 7500 1234 5678';
+    return profile?.savedCardNumber || '5412 7500 1234 5678';
   });
   const [cardHolder, setCardHolder] = useState<string>(() => {
-    return localStorage.getItem('iramo_saved_card_holder') || profile?.name || 'Huda Al-Sultani';
+    return profile?.savedCardHolder || profile?.name || 'Huda Al-Sultani';
   });
   const [expiry, setExpiry] = useState<string>(() => {
-    return localStorage.getItem('iramo_saved_expiry') || '12/28';
+    return profile?.savedCardExpiry || '12/28';
   });
+
+  React.useEffect(() => {
+    if (profile) {
+      if (profile.savedCardNumber) setCardNumber(profile.savedCardNumber);
+      if (profile.savedCardHolder) setCardHolder(profile.savedCardHolder);
+      if (profile.savedCardExpiry) setExpiry(profile.savedCardExpiry);
+    }
+  }, [profile]);
   const [cvv, setCvv] = useState<string>('345');
   const [isPaying, setIsPaying] = useState<boolean>(false);
   const [paySuccess, setPaySuccess] = useState<boolean>(false);
@@ -1242,9 +1250,9 @@ export default function InvoiceView() {
                       setPaySuccess(false);
                       setIsPaying(false);
                       // Set default or saved card details
-                      setCardNumber(localStorage.getItem('iramo_saved_card_number') || '5412 7500 1234 5678');
-                      setCardHolder(localStorage.getItem('iramo_saved_card_holder') || profile?.name || 'Huda Al-Sultani');
-                      setExpiry(localStorage.getItem('iramo_saved_expiry') || '12/28');
+                      setCardNumber(profile?.savedCardNumber || '5412 7500 1234 5678');
+                      setCardHolder(profile?.savedCardHolder || profile?.name || 'Huda Al-Sultani');
+                      setExpiry(profile?.savedCardExpiry || '12/28');
                       setCvv('345');
                     }}
                     className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-[11px] font-black bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white shadow-md shadow-pink-500/10 active:scale-95 transition-all border border-transparent cursor-pointer"

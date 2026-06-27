@@ -33,23 +33,19 @@ export default function NotificationsView() {
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in" id="notifications-view">
-      {/* Pixar Mascot Greeting */}
-      <div className="bg-white/95 border border-pink-100 p-4 rounded-3xl shadow-sm flex items-center gap-4 relative overflow-hidden group">
-        <div className="absolute -right-4 -top-4 w-24 h-24 bg-pink-100/20 rounded-full blur-2xl"></div>
-        <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-md flex-shrink-0 bg-pink-50 float-animation">
-          <img
-            alt="Batoot"
-            className="w-full h-full object-cover"
-            src={customizations?.notificationsBannerUrl || "https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"}
-            referrerPolicy="no-referrer"
-          />
-        </div>
-        <div className="relative z-10 space-y-0.5 text-right flex-1">
-          <h2 className="font-extrabold text-sm text-pink-700 leading-tight">{customizations?.notificationsWelcomeText || "مركز التنبيهات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨"}</h2>
-          <p className="text-[10px] font-bold text-gray-400 italic">"Stay Fabulous with IRAMO"</p>
-        </div>
-        <div className="mr-auto text-pink-200">
-          <Sparkles className="w-6 h-6" />
+      {/* Real Full-Width Cover Banner */}
+      <div className="relative w-full aspect-[16/7] rounded-3xl overflow-hidden shadow-sm group">
+        <img
+          alt="Notifications Banner"
+          className="w-full h-full object-cover"
+          src={customizations?.notificationsBannerUrl || "https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs"}
+          referrerPolicy="no-referrer"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-5 flex flex-col justify-end text-right" dir="rtl">
+          <p className="text-pink-300 font-bold text-[10px] uppercase tracking-wider mb-1">IRAMO Notifications</p>
+          <h2 className="text-sm md:text-base font-extrabold text-white leading-snug max-w-[280px]">
+            {customizations?.notificationsWelcomeText || "مركز التنبيهات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨"}
+          </h2>
         </div>
       </div>
 

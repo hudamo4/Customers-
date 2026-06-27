@@ -9,14 +9,10 @@ import ManagerPortal from './components/manager/ManagerPortal';
 import { Home, Truck, Receipt, User, Bell, ChevronRight, Menu, Loader2, ArrowRightLeft } from 'lucide-react';
 
 function AppContent() {
-  const { activeTab, setActiveTab, notifications, profile, loading } = useApp();
-  const [appMode, setAppMode] = React.useState<'customer' | 'manager'>(() => {
-    return (localStorage.getItem('iramo_app_mode') as 'customer' | 'manager') || 'customer';
-  });
+  const { activeTab, setActiveTab, notifications, profile, loading, appMode, setAppMode } = useApp();
 
   const handleSwitchMode = (mode: 'customer' | 'manager') => {
     setAppMode(mode);
-    localStorage.setItem('iramo_app_mode', mode);
   };
 
   // Count unread notifications

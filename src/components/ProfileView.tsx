@@ -114,7 +114,7 @@ const AVAILABLE_STORES = [
 ];
 
 export default function ProfileView() {
-  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar } = useApp();
+  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode } = useApp();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [name, setName] = useState<string>(profile?.name || '');
   const [phone, setPhone] = useState<string>(profile?.phone || '');
@@ -135,18 +135,16 @@ export default function ProfileView() {
   // Wallet & Mastercard payment options states
   const [showPaymentMethods, setShowPaymentMethods] = useState<boolean>(false);
   const [selectedMethod, setSelectedMethod] = useState<'mastercard' | 'zain_cash' | 'asiadhawala' | 'cod'>('mastercard');
-  const [walletBalance, setWalletBalance] = useState<number>(() => {
-    const saved = localStorage.getItem('iramo_wallet_balance');
-    return saved ? parseInt(saved) : 55000;
-  });
+  const walletBalance = profile?.walletBalance ?? 250000;
+  
   const [savedCardNumber, setSavedCardNumber] = useState<string>(() => {
-    return localStorage.getItem('iramo_saved_card_number') || '5412 7500 1234 5678';
+    return profile?.savedCardNumber || '5412 7500 1234 5678';
   });
   const [savedCardHolder, setSavedCardHolder] = useState<string>(() => {
-    return localStorage.getItem('iramo_saved_card_holder') || (profile?.name || 'Huda Al-Sultani').toUpperCase();
+    return profile?.savedCardHolder || (profile?.name || 'Huda Al-Sultani').toUpperCase();
   });
   const [savedExpiry, setSavedExpiry] = useState<string>(() => {
-    return localStorage.getItem('iramo_saved_expiry') || '12/28';
+    return profile?.savedCardExpiry || '12/28';
   });
   const [savedCvv, setSavedCvv] = useState<string>('345');
   const [isSavingCard, setIsSavingCard] = useState<boolean>(false);
@@ -156,6 +154,14 @@ export default function ProfileView() {
   const [topupAmount, setTopupAmount] = useState<string>('25000');
   const [isToppingUp, setIsToppingUp] = useState<boolean>(false);
   const [topupSuccess, setTopupSuccess] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (profile) {
+      if (profile.savedCardNumber) setSavedCardNumber(profile.savedCardNumber);
+      if (profile.savedCardHolder) setSavedCardHolder(profile.savedCardHolder);
+      if (profile.savedCardExpiry) setSavedExpiry(profile.savedCardExpiry);
+    }
+  }, [profile]);
 
   const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
@@ -174,29 +180,42 @@ export default function ProfileView() {
     }
   };
 
-  const handleSaveCardInfo = () => {
+  const handleSaveCardInfo = async () => {
     setIsSavingCard(true);
-    setTimeout(() => {
-      localStorage.setItem('iramo_saved_card_number', savedCardNumber);
-      localStorage.setItem('iramo_saved_card_holder', savedCardHolder);
-      localStorage.setItem('iramo_saved_expiry', savedExpiry);
-      setIsSavingCard(false);
-      setSaveCardSuccess(true);
-      setTimeout(() => setSaveCardSuccess(false), 3000);
-    }, 1200);
+    if (profile) {
+      await updateProfile(
+        profile.name,
+        profile.phone,
+        profile.city,
+        profile.walletBalance,
+        savedCardNumber,
+        savedCardHolder,
+        savedExpiry
+      );
+    }
+    setIsSavingCard(false);
+    setSaveCardSuccess(true);
+    setTimeout(() => setSaveCardSuccess(false), 3000);
   };
 
-  const handleTopupWallet = () => {
+  const handleTopupWallet = async () => {
     if (!topupAmount || parseInt(topupAmount) <= 0) return;
     setIsToppingUp(true);
-    setTimeout(() => {
-      const newBalance = walletBalance + parseInt(topupAmount);
-      setWalletBalance(newBalance);
-      localStorage.setItem('iramo_wallet_balance', newBalance.toString());
-      setIsToppingUp(false);
-      setTopupSuccess(true);
-      setTimeout(() => setTopupSuccess(false), 3000);
-    }, 1500);
+    const newBalance = walletBalance + parseInt(topupAmount);
+    if (profile) {
+      await updateProfile(
+        profile.name,
+        profile.phone,
+        profile.city,
+        newBalance,
+        profile.savedCardNumber,
+        profile.savedCardHolder,
+        profile.savedCardExpiry
+      );
+    }
+    setIsToppingUp(false);
+    setTopupSuccess(true);
+    setTimeout(() => setTopupSuccess(false), 3000);
   };
 
   // Initialize form when editing opens
@@ -775,8 +794,9 @@ export default function ProfileView() {
               <button 
                 onClick={() => {
                   if (passcodeInput === '9988' || passcodeInput === 'huda44' || passcodeInput === 'huda2026') {
-                    localStorage.setItem('iramo_app_mode', 'manager');
-                    window.location.reload();
+                    setAppMode('manager');
+                    setShowPasscodeModal(false);
+                    setPasscodeInput('');
                   } else {
                     setPasscodeError(true);
                     setPasscodeInput('');
@@ -821,10 +841,10 @@ export default function ProfileView() {
               <span className="text-[10px] text-gray-400 font-bold block">رمزيات مقترحة سريعة:</span>
               <div className="grid grid-cols-4 gap-2 justify-center">
                 {[
+                  'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE',
                   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
                   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120',
-                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=120',
-                  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=120'
+                  'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=120'
                 ].map((avatarUrl, idx) => (
                   <button
                     key={idx}
