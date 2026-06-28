@@ -248,27 +248,6 @@ export async function seedInitialDataIfEmpty(uid: string) {
       const defaultNotifications: NotificationDetail[] = [
         {
           userId: uid,
-          notificationId: 'notif_1',
-          type: 'shipment',
-          title: 'تحديث شحنتك',
-          content: 'طرودكِ الأنيقة IRA-99201-XQ في طريقها إليكِ الآن!',
-          time: 'الآن',
-          icon: 'Package',
-          read: false
-        },
-        {
-          userId: uid,
-          notificationId: 'notif_2',
-          type: 'offer',
-          title: 'هدية من هدوشة',
-          content: 'تحققي من حسابكِ، هناك نقاط ولاء جديدة بانتظاركِ 💖',
-          time: '٥ د',
-          image: 'https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU',
-          action: 'استعراض النقاط',
-          read: false
-        },
-        {
-          userId: uid,
           notificationId: 'notif_3',
           type: 'invoice',
           title: 'تأكيد الدفع',

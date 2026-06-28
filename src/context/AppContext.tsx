@@ -46,6 +46,7 @@ interface AppContextType {
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (username: string, phone: string, name: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -97,29 +98,6 @@ const DEFAULT_INVOICES: Invoice[] = [
 ];
 
 const DEFAULT_NOTIFICATIONS: NotificationDetail[] = [
-  {
-    id: 'local_notif_1',
-    userId: 'local_user',
-    notificationId: 'notif_1',
-    type: 'shipment',
-    title: 'تحدث شحنتك',
-    content: 'طرودكِ الأنيقة IRA-99201-XQ في طريقها إليكِ الآن!',
-    time: 'الآن',
-    icon: 'Package',
-    read: false
-  },
-  {
-    id: 'local_notif_2',
-    userId: 'local_user',
-    notificationId: 'notif_2',
-    type: 'offer',
-    title: 'هدية من هدوشة',
-    content: 'تحققي من حسابكِ، هناك نقاط ولاء جديدة بانتظاركِ 💖',
-    time: '٥ د',
-    image: 'https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU',
-    action: 'استعراض النقاط',
-    read: false
-  },
   {
     id: 'local_notif_3',
     userId: 'local_user',
@@ -1008,6 +986,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const register = async (username: string, phone: string, name: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const usersRef = collection(db, 'users');
+      // Check if username already exists
+      const qId = query(usersRef, where('customerId', '==', username.trim()));
+      const snapId = await getDocs(qId);
+      if (!snapId.empty) {
+        return { success: false, error: 'اسم المستخدم هذا مسجل مسبقاً 🌸 يرجى اختيار اسم آخر.' };
+      }
+
+      // Check if phone already exists
+      const qPhone = query(usersRef, where('phone', '==', phone.trim()));
+      const snapPhone = await getDocs(qPhone);
+      if (!snapPhone.empty) {
+        return { success: false, error: 'رقم الهاتف هذا مسجل مسبقاً لدينا 💖' };
+      }
+
+      // Create Auth user
+      const email = `${username.trim().toLowerCase()}@iramo.com`;
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      const authUser = cred.user;
+
+      // Save user document in Firestore
+      const userDocRef = doc(db, 'users', authUser.uid);
+      const newProfile: UserProfile = {
+        uid: authUser.uid,
+        customerId: username.trim(),
+        name: name.trim(),
+        phone: phone.trim(),
+        password: password,
+        role: 'customer',
+        membership: 'عضوية أساسية',
+        points: 0,
+        walletBalance: 0,
+        city: 'بغداد، العراق',
+        avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'
+      };
+
+      await setDoc(userDocRef, newProfile);
+      await seedInitialDataIfEmpty(authUser.uid);
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Registration failed:", err);
+      if (err.code === 'auth/email-already-in-use') {
+        return { success: false, error: 'اسم المستخدم هذا غير متاح 🌸' };
+      }
+      return { success: false, error: err.message || 'حدث خطأ غير متوقع أثناء إنشاء الحساب.' };
+    }
+  };
+
   const logout = async () => {
     try {
       await signOut(auth);
@@ -1071,6 +1100,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         showLoginModal,
         setShowLoginModal,
         login,
+        register,
         logout,
       }}
     >

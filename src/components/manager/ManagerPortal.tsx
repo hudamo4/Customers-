@@ -27,7 +27,7 @@ interface ManagerPortalProps {
   onSwitchToCustomerMode: () => void;
 }
 
-type ManagerTabType = 'dashboard' | 'shipments' | 'invoices' | 'customers' | 'profits' | 'settings' | 'visualIdentity' | 'notifications';
+type ManagerTabType = 'dashboard' | 'shipments' | 'invoices' | 'customers' | 'profits' | 'settings' | 'generalSettings' | 'visualIdentity' | 'notifications';
 
 export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalProps) {
   const [activeTab, setActiveTab] = useState<ManagerTabType>('dashboard');
@@ -49,6 +49,8 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
       case 'profits':
         return 'تقارير الأرباح والمبيعات';
       case 'settings':
+        return 'أدوات الإدارة والضبط 👑';
+      case 'generalSettings':
         return 'إعدادات متجر إيرامو';
       case 'visualIdentity':
         return 'مركز الهوية البصرية والسمات';
@@ -79,7 +81,14 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
                 if (addBtn) (addBtn as HTMLButtonElement).click();
               }, 100);
             }}
-            onNavigateToTab={(tab) => setActiveTab(tab as ManagerTabType)}
+            onNavigateToTab={(tab) => {
+              // Map legacy settings or profits navigation nicely
+              if (tab === 'settings') {
+                setActiveTab('generalSettings');
+              } else {
+                setActiveTab(tab as ManagerTabType);
+              }
+            }}
           />
         );
       case 'shipments':
@@ -91,6 +100,96 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
       case 'profits':
         return <ManagerProfits />;
       case 'settings':
+        return (
+          <div className="space-y-6 pt-4 pb-12 text-right" dir="rtl">
+            {/* Header / Intro Card */}
+            <div className="bg-gradient-to-r from-pink-600 to-pink-800 text-white rounded-3xl p-5 shadow-md relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-xl -mr-8 -mt-8 pointer-events-none animate-pulse" />
+              <h2 className="text-xs font-black mb-1">لوحة الأدوات والضبط المتقدم 👑</h2>
+              <p className="text-[10px] text-pink-100 font-semibold leading-relaxed">
+                مرحباً بكِ يا ملكة المتجر هدوشة في مركز التحكم الكامل بالتطبيق والواجهات والبنرات.
+              </p>
+            </div>
+
+            {/* Premium Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* Card 1: Visual Identity & Banner Edits */}
+              <button
+                onClick={() => setActiveTab('visualIdentity')}
+                className="bg-white hover:bg-pink-50/20 border border-pink-100 p-5 rounded-3xl flex flex-col items-center justify-center text-center gap-2.5 transition-all active:scale-[0.97] hover:border-pink-300 shadow-xs cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-pink-100/60 text-pink-700 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                  🎨
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[11px] font-black text-pink-950">تعديل الواجهات والبنرات</h4>
+                  <p className="text-[8.5px] text-gray-400 font-bold">الهوية البصرية والبنرات</p>
+                </div>
+              </button>
+
+              {/* Card 2: Store General Settings */}
+              <button
+                onClick={() => setActiveTab('generalSettings')}
+                className="bg-white hover:bg-pink-50/20 border border-pink-100 p-5 rounded-3xl flex flex-col items-center justify-center text-center gap-2.5 transition-all active:scale-[0.97] hover:border-pink-300 shadow-xs cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-amber-100/60 text-amber-700 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                  ⚙️
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[11px] font-black text-pink-950">إعدادات المتجر العامة</h4>
+                  <p className="text-[8.5px] text-gray-400 font-bold">الماركات والمحافظات والأسعار</p>
+                </div>
+              </button>
+
+              {/* Card 3: Notification Center */}
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className="bg-white hover:bg-pink-50/20 border border-pink-100 p-5 rounded-3xl flex flex-col items-center justify-center text-center gap-2.5 transition-all active:scale-[0.97] hover:border-pink-300 shadow-xs cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-blue-100/60 text-blue-700 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                  🔔
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[11px] font-black text-pink-950">مركز التنبيهات الفاخرة</h4>
+                  <p className="text-[8.5px] text-gray-400 font-bold">إرسال إشعارات جماعية للزبونات</p>
+                </div>
+              </button>
+
+              {/* Card 4: Profit Reports */}
+              <button
+                onClick={() => setActiveTab('profits')}
+                className="bg-white hover:bg-pink-50/20 border border-pink-100 p-5 rounded-3xl flex flex-col items-center justify-center text-center gap-2.5 transition-all active:scale-[0.97] hover:border-pink-300 shadow-xs cursor-pointer group"
+              >
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100/60 text-emerald-700 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                  📈
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-[11px] font-black text-pink-950">تقارير الأرباح والمبيعات</h4>
+                  <p className="text-[8.5px] text-gray-400 font-bold">رؤية تفصيلية للأرباح والنمو</p>
+                </div>
+              </button>
+            </div>
+
+            {/* Quick Helper Banner */}
+            <div className="bg-pink-50/30 rounded-2xl p-4 border border-dashed border-pink-200 flex gap-3 items-center text-right" dir="rtl">
+              <div className="w-9 h-9 flex-shrink-0 rounded-full overflow-hidden bg-white border border-pink-100 p-1">
+                <img 
+                  alt="Mascot Hadoosha" 
+                  className="w-full h-full object-contain" 
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h5 className="text-[10px] font-black text-pink-900">ملاحظة من هدوشة ✨</h5>
+                <p className="text-[9px] text-gray-500 font-semibold leading-relaxed mt-0.5">
+                  جميع هذه التعديلات تحفظ فورياً في السحابة وتنعكس في واجهة زبونات متجركِ الراقيـات في نفس اللحظة!
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      case 'generalSettings':
         return <ManagerSettings />;
       case 'visualIdentity':
         return <ManagerVisualIdentity />;
@@ -107,13 +206,23 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
       {/* Header bar */}
       <header className="absolute top-0 left-0 right-0 h-16 bg-white/75 backdrop-blur-xl border-b border-pink-100/30 flex items-center justify-between px-4 z-40 shadow-sm">
         <div className="flex items-center gap-2">
-          <button 
-            onClick={onSwitchToCustomerMode}
-            className="flex items-center gap-1.5 bg-pink-50 text-pink-700 px-3 py-1.5 rounded-full text-[10px] font-black border border-pink-100 shadow-sm active:scale-95 transition-all cursor-pointer"
-          >
-            <ArrowRightLeft className="w-3.5 h-3.5" />
-            <span>بوابة الزبائن</span>
-          </button>
+          {activeTab === 'generalSettings' || activeTab === 'visualIdentity' || activeTab === 'notifications' || activeTab === 'profits' ? (
+            <button 
+              onClick={() => setActiveTab('settings')}
+              className="flex items-center gap-1 bg-pink-50 text-pink-700 px-3 py-1.5 rounded-full text-[10px] font-black border border-pink-100 shadow-sm active:scale-95 transition-all cursor-pointer"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+              <span>رجوع للمزيد</span>
+            </button>
+          ) : (
+            <button 
+              onClick={onSwitchToCustomerMode}
+              className="flex items-center gap-1.5 bg-pink-50 text-pink-700 px-3 py-1.5 rounded-full text-[10px] font-black border border-pink-100 shadow-sm active:scale-95 transition-all cursor-pointer"
+            >
+              <ArrowRightLeft className="w-3.5 h-3.5" />
+              <span>بوابة الزبائن</span>
+            </button>
+          )}
         </div>
 
         <h1 className="font-black text-xs text-pink-700 tracking-tight text-center truncate pr-2">
@@ -132,7 +241,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
         {renderActiveView()}
       </main>
 
-      {/* Manager Specific Navigation - Sticky at the bottom */}
+      {/* Manager Specific Navigation - Sticky 5-Tab bar at the bottom */}
       <nav className="absolute bottom-0 left-0 right-0 h-24 pb-4 bg-white/95 backdrop-blur-2xl border-t border-pink-100/30 shadow-lg rounded-t-[2rem] flex justify-around items-center px-1 z-40">
         <button
           onClick={() => setActiveTab('dashboard')}
@@ -140,7 +249,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'dashboard' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'dashboard' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'dashboard' ? 'bg-pink-100' : ''}`}>
             <LayoutDashboard className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الرئيسية</span>
@@ -152,7 +261,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'shipments' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'shipments' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'shipments' ? 'bg-pink-100' : ''}`}>
             <Truck className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الشحنات</span>
@@ -164,7 +273,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'invoices' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'invoices' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'invoices' ? 'bg-pink-100' : ''}`}>
             <Receipt className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الفواتير</span>
@@ -176,46 +285,22 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'customers' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'customers' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'customers' ? 'bg-pink-100' : ''}`}>
             <Users className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الزبائن</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('notifications')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 cursor-pointer ${
-            activeTab === 'notifications' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-          }`}
-        >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'notifications' ? 'bg-pink-100' : ''}`}>
-            <Bell className="w-4.5 h-4.5" />
-          </div>
-          <span className="text-[9px] font-bold">الإشعارات</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('visualIdentity')}
-          className={`flex flex-col items-center gap-1 transition-all duration-300 cursor-pointer ${
-            activeTab === 'visualIdentity' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-          }`}
-        >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'visualIdentity' ? 'bg-pink-100' : ''}`}>
-            <Palette className="w-4.5 h-4.5" />
-          </div>
-          <span className="text-[9px] font-bold">الهوية</span>
-        </button>
-
-        <button
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-1 transition-all duration-300 cursor-pointer ${
-            activeTab === 'settings' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
+            activeTab === 'settings' || activeTab === 'generalSettings' || activeTab === 'visualIdentity' || activeTab === 'notifications' || activeTab === 'profits' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'settings' ? 'bg-pink-100' : ''}`}>
-            <Settings className="w-4.5 h-4.5" />
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'settings' || activeTab === 'generalSettings' || activeTab === 'visualIdentity' || activeTab === 'notifications' || activeTab === 'profits' ? 'bg-pink-100' : ''}`}>
+            <Menu className="w-4.5 h-4.5" />
           </div>
-          <span className="text-[9px] font-bold">الإعدادات</span>
+          <span className="text-[9px] font-bold">المزيد</span>
         </button>
       </nav>
 

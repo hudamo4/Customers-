@@ -18,8 +18,12 @@ async function startServer() {
       const { message, history } = req.body;
       const apiKey = process.env.GEMINI_API_KEY;
 
-      if (!apiKey) {
-        return res.status(500).json({ error: "GEMINI_API_KEY is not configured in environment variables." });
+      if (!apiKey || apiKey === "your_api_key_here" || apiKey.trim() === "" || apiKey === "undefined") {
+        return res.json({ 
+          reply: null, 
+          useFallback: true,
+          error: "GEMINI_API_KEY is not configured in environment variables." 
+        });
       }
 
       const ai = new GoogleGenAI({
@@ -59,8 +63,12 @@ async function startServer() {
 
       return res.json({ reply: response.text });
     } catch (error: any) {
-      console.error("Gemini API Error:", error);
-      return res.status(500).json({ error: error.message || "Something went wrong" });
+      console.warn("Gemini service is unavailable or key is invalid, using graceful fallback.");
+      return res.json({ 
+        reply: null, 
+        useFallback: true, 
+        error: "Gemini service temporarily unavailable." 
+      });
     }
   });
 

@@ -10,14 +10,17 @@
 
 body {
   font-family: var(--font-sans);
-  background-color: #fcebeb; /* Soft rose gold/pastel background on desktop */
-  background-image: radial-gradient(circle at 10% 20%, rgba(253, 239, 237, 1) 0%, rgba(254, 224, 225, 0.45) 90.1%);
+  background-color: #fffcfb;
   direction: rtl;
   min-height: 100vh;
   margin: 0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
 }
 
 /* Glassmorphism utility */

@@ -1003,20 +1003,27 @@ export default function InvoiceView() {
           <footer className="text-center pt-2 pb-1 relative z-10 space-y-3">
             <div className="flex flex-col items-center justify-center border-t border-dashed border-[#FCDDDE] pt-3 mt-1 select-none">
               <span className="text-[10px] text-[#7D5558]/80 font-black block mb-1">إدارة IRAMO:</span>
-              <div className="relative pt-2 pb-24 px-8 flex flex-col items-center">
-                <span className="font-signature-ar text-xl text-[#7D5558] tracking-wide block leading-none select-none relative z-10">
+              
+              {/* Pink Post Seal Stamp (Clean and inline!) */}
+              <div className="w-20 h-20 rounded-full border-4 border-double border-pink-700/40 flex flex-col items-center justify-center rotate-[8deg] opacity-90 scale-95 select-none pointer-events-none bg-pink-50/10">
+                <span className="text-[7px] font-black text-pink-700 leading-none">مكتب إيرامو للشحن</span>
+                <span className="text-[5.5px] text-pink-600 font-bold leading-none mt-0.5">تأكيد التدقيق المالي</span>
+                <span className="text-[8px] text-pink-700 font-extrabold leading-none mt-0.5">✓ APPROVED</span>
+                <span className="text-[6px] text-pink-600/60 leading-none mt-0.5">2026 BAGHDAD</span>
+              </div>
+
+              {/* Signature block directly below the stamp */}
+              <div className="relative pt-1 flex flex-col items-center px-4">
+                <span className="font-signature-ar text-[11px] font-bold text-[#7D5558] tracking-wide block leading-none select-none relative z-10">
                   المحللة هدى محمد
                 </span>
-                <span className="font-signature text-3xl text-pink-700/90 block leading-none mt-1 select-none font-medium relative z-10">
+                <span className="font-signature text-base text-pink-700/90 block leading-none mt-1 select-none font-medium relative z-10">
                   AN.Huda Mohammed
                 </span>
-                <svg className="w-36 h-3 text-pink-600/30 absolute bottom-22 left-1/2 -translate-x-1/2" viewBox="0 0 100 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg className="w-24 h-2 text-pink-600/30 mt-1" viewBox="0 0 100 10" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M2 5 C 20 8, 50 1, 98 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
                   <path d="M15 7 C 40 9, 70 5, 90 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
                 </svg>
-
-                {/* Premium 3D Wax Seal Stamp - Positioned below the name in the empty space */}
-                <IramoWaxSeal className="absolute bottom-2 left-1/2 -translate-x-1/2 rotate-[6deg] z-20 scale-[0.85]" size={90} />
               </div>
             </div>
 
@@ -1708,7 +1715,7 @@ export default function InvoiceView() {
 
       {/* Elegant traditional Iraqi print voucher modal */}
       {showVoucherModal && selectedInvoiceForVoucher && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex flex-col items-center justify-center p-4 overflow-y-auto animate-fade-in" dir="rtl">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex flex-col items-center justify-start md:justify-center p-4 py-8 md:py-12 overflow-y-auto animate-fade-in" dir="rtl">
           {/* Action controls for the voucher */}
           <div className="w-full max-w-[480px] flex items-center justify-between mb-3 no-print bg-white/90 backdrop-blur p-3 rounded-2xl shadow-md border border-pink-100">
             <div className="flex gap-2">
@@ -1816,12 +1823,10 @@ export default function InvoiceView() {
                    <h1 className="text-2xl font-black text-pink-700">كشف الفواتير والطلبات</h1>
                    <p className="text-xs text-gray-500 mt-1">كشف تفصيلي بالطلبات والمشتريات المحلية للشحن</p>
                 </div>
-                <img 
-                  alt="Logo" 
-                  className="h-12 object-contain" 
-                  src="https://lh3.googleusercontent.com/aida/AP1WRLt6-KkaqmBMU0ma4nxf0K0zdNrE-JbMHCNgioablK3UA34SU_BYJdYiVDduyaLnaMLdxjAHykkh8WM2gdzHQMZPkvT3I6jHR79rKjlBHaP0ehlBvtbuGcNdbhpWsXxX5Cf-LEemxYpVddPfXvC8Ph322IFZguQxOz-1baaD7xJvlUUyQbZL-akA0fu93pAOzBb9gxtQlvG0TxiCGAyFYtRXx3_1fmXwa5k4Zknyl3UY3fr_uHFlDe_da50"
-                  referrerPolicy="no-referrer"
-                />
+                <div className="text-left flex flex-col items-end">
+                   <div className="text-xl font-serif text-pink-700 font-bold tracking-wider leading-none">IRAMO</div>
+                   <div className="text-[7.5px] font-sans tracking-widest text-pink-600 font-bold leading-none mt-0.5">STORE</div>
+                </div>
              </div>
 
              <div className="bg-pink-50/50 border border-pink-100 rounded-2xl p-4 mb-6 grid grid-cols-3 gap-4 text-xs font-bold text-gray-700">

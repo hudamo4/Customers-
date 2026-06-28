@@ -10,6 +10,9 @@ export interface UserProfile {
   savedCardNumber?: string;
   savedCardHolder?: string;
   savedCardExpiry?: string;
+  customerId?: string;
+  role?: string;
+  password?: string;
 }
 
 export interface JourneyStep {
