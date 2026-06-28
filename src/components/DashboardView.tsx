@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import IramoProductsList from './IramoProductsList';
+import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 import { 
   Award, 
   Package, 
@@ -20,12 +22,45 @@ import {
   Minus, 
   Plus, 
   Compass, 
-  Truck
+  Truck,
+  Wallet,
+  Copy,
+  PlusCircle,
+  Check,
+  Bell,
+  Smile,
+  Coffee,
+  Heart,
+  HelpCircle,
+  ShieldCheck,
+  LogIn,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 export default function DashboardView() {
-  const { profile, shipments, invoices, setActiveTab, setSelectedShipmentId, customizations } = useApp();
+  const { profile, shipments, invoices, notifications, setActiveTab, setSelectedShipmentId, customizations, isLoggedIn, setShowLoginModal } = useApp();
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
+  const [rechargeModal, setRechargeModal] = useState<boolean>(false);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  // Interactive Welcome Card States
+  const [userMood, setUserMood] = useState<string | null>(null);
+  const [guestActiveTip, setGuestActiveTip] = useState<string>('tracking');
+
+  // Dynamic time-based greeting helper
+  const getGreetingTime = () => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      return { text: 'صباح الخير والجمال والبركة يا غالية', icon: <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" /> };
+    } else if (hour >= 12 && hour < 18) {
+      return { text: 'مساء الخير والأنوار والأوقات السعيدة', icon: <Sun className="w-4 h-4 text-orange-400" /> };
+    } else {
+      return { text: 'طاب مساؤكِ بالورد والأناقة والهدوء', icon: <Moon className="w-4 h-4 text-indigo-400 animate-pulse" /> };
+    }
+  };
+
+  const greetingObj = getGreetingTime();
 
   // Calculator states
   const [calcStoreId, setCalcStoreId] = useState<string>('');
@@ -37,21 +72,37 @@ export default function DashboardView() {
   const [presetSearch, setPresetSearch] = useState<string>('');
 
   // Format title
-  const formattedTitle = customizations.heroTitle
-    ? customizations.heroTitle.replace('{name}', profile?.name || '')
-    : `مرحباً، ${profile?.name || ''}!`;
+  const formattedTitle = isLoggedIn
+    ? (customizations.heroTitle
+        ? customizations.heroTitle.replace('{name}', profile?.name || '')
+        : `مرحباً ${profile?.name || ''} 💖`)
+    : 'مرحباً بكِ في IRAMO STORE ✨';
+
+  const formattedSubtitle = isLoggedIn
+    ? (customizations.heroSubtitle || "أهلاً بكِ في عالم هدوشة وبطوط")
+    : 'يمكنكِ استعراض خدماتنا، وللوصول إلى شحناتكِ وفواتيركِ يرجى تسجيل الدخول.';
 
   // Banners Carousel List
-  const activeBanners = (customizations.banners && customizations.banners.length > 0)
+  const rawBanners = (customizations.banners && customizations.banners.length > 0)
     ? customizations.banners
     : [
         {
           id: 'default',
           imageUrl: customizations.heroImageUrl || "https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs",
           title: formattedTitle,
-          subtitle: customizations.heroSubtitle || "أهلاً بكِ في عالم هدوشة وبطوط"
+          subtitle: formattedSubtitle
         }
       ];
+
+  const activeBanners = rawBanners.map(bn => ({
+    ...bn,
+    title: isLoggedIn
+      ? (bn.title ? bn.title.replace('{name}', profile?.name || '') : `مرحباً ${profile?.name || ''} 💖`)
+      : (bn.id === 'banner_1' || bn.id === 'default' ? 'مرحباً بكِ في IRAMO STORE ✨' : (bn.title || '').replace('{name}', '')),
+    subtitle: isLoggedIn
+      ? (bn.subtitle ? bn.subtitle.replace('{name}', profile?.name || '') : bn.subtitle)
+      : (bn.id === 'banner_1' || bn.id === 'default' ? 'يمكنكِ استعراض خدماتنا، وللوصول إلى شحناتكِ وفواتيركِ يرجى تسجيل الدخول.' : bn.subtitle)
+  }));
 
   const [currentBannerIdx, setCurrentBannerIdx] = useState(0);
 
@@ -236,24 +287,376 @@ export default function DashboardView() {
         </section>
       )}
 
-      {/* Loyalty Card */}
-      {customizations.showLoyalty && (
-        <div className="bg-white/95 backdrop-blur-xl border border-pink-100 p-6 rounded-3xl shadow-sm flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-400 to-pink-600 flex items-center justify-center text-white shadow-lg shadow-pink-500/20">
-              <Award className="w-8 h-8" />
+      {/* Interactive Welcome Card Section */}
+      <div className="w-full">
+        {isLoggedIn ? (
+          <div className="relative overflow-hidden bg-gradient-to-tr from-pink-500/10 via-pink-50/70 to-amber-500/5 border border-pink-100 p-6 rounded-[2.25rem] shadow-sm text-right space-y-4">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Profile Avatar and Time-Based Personalized Greeting */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 text-[11px] text-pink-700 font-extrabold bg-pink-100/50 py-1 px-3 rounded-full w-fit">
+                  {greetingObj.icon}
+                  <span>{greetingObj.text}</span>
+                </div>
+                <h2 className="text-xl font-extrabold text-pink-950 mt-1">
+                  مرحباً بكِ عزيزتنا {profile?.name || 'الأنيقة'} 💖
+                </h2>
+                <p className="text-xs text-pink-900/70 font-medium leading-relaxed max-w-[340px]">
+                  سعداء بتواجدكِ اليوم! قمنا بتحديث مستجدات شحناتكِ وفواتيركِ تلقائياً لتكون جاهزة للمتابعة الفورية.
+                </p>
+              </div>
+              {profile?.avatar ? (
+                <div className="relative shrink-0">
+                  <img
+                    src={profile.avatar}
+                    alt={profile.name}
+                    className="w-14 h-14 rounded-full border-2 border-pink-200 object-cover shadow-sm"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
+                </div>
+              ) : (
+                <div className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold shrink-0 shadow-md">
+                  <span>{(profile?.name || 'هـ')[0]}</span>
+                  <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
+                </div>
+              )}
             </div>
-            <div>
-              <h3 className="font-bold text-gray-800 text-base">{profile?.membership || 'عضوية ذهبية'}</h3>
-              <p className="text-xs text-gray-500">نقاط الولاء المتاحة</p>
+
+            {/* Interactive Mood Picker */}
+            <div className="pt-2 border-t border-pink-100/60 space-y-3">
+              <div className="flex items-center gap-1.5">
+                <Smile className="w-4 h-4 text-pink-600" />
+                <span className="text-xs font-black text-pink-950">كيف هو روقانكِ ومزاجكِ اليوم؟ 🌸</span>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { id: 'shop', label: 'متحمسة للتسوق', emoji: '🤩' },
+                  { id: 'relax', label: 'أحتاج روقان', emoji: '☕' },
+                  { id: 'shipment', label: 'أنتظر شحنة', emoji: '📦' },
+                  { id: 'query', label: 'لدي استفسار', emoji: '💬' }
+                ].map((mood) => {
+                  const isSelected = userMood === mood.id;
+                  return (
+                    <button
+                      key={mood.id}
+                      onClick={() => {
+                        triggerLightHaptic();
+                        setUserMood(isSelected ? null : mood.id);
+                      }}
+                      className={`py-2 px-1.5 rounded-2xl border text-[11px] font-bold transition-all flex flex-col items-center gap-1 cursor-pointer ${
+                        isSelected
+                          ? 'bg-pink-600 text-white border-pink-600 shadow-md shadow-pink-500/10 scale-105'
+                          : 'bg-white hover:bg-pink-50/50 border-pink-100 text-pink-900'
+                      }`}
+                    >
+                      <span className="text-base">{mood.emoji}</span>
+                      <span className="text-[9px] truncate w-full text-center">{mood.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Dynamic interaction box based on chosen mood */}
+              {userMood && (
+                <div className="bg-white border border-pink-100 p-3.5 rounded-2xl space-y-2 animate-fade-in shadow-xs text-right">
+                  <p className="text-xs text-pink-950 font-bold leading-relaxed">
+                    {userMood === 'shop' && 'رائع جداً! مجهزون لكِ أفضل كوبونات الخصم والعروض الحصرية اليوم لتستمتعي برحلة تسوق متميزة 🛍️✨'}
+                    {userMood === 'relax' && 'خذي رشفة من قهوتكِ المفضلة وتصفحي بهدوء، طاقمنا بالكامل في خدمتكِ لنقدم لكِ أرقى تجربة شحن ☕💖'}
+                    {userMood === 'shipment' && 'جميع شحناتكِ تقع تحت العناية الفائقة ويتم تحديثها لحظة بلحظة. يمكنكِ تتبع مسارها مباشرة بالضغط على تتبع الشحنات 🚚'}
+                    {userMood === 'query' && 'مديرتنا هدوشة ومساعدها الذكي جاهزون للإجابة عن أي استفسار! اضغطي على المساعد العائم بالأسفل لبدء دردشة ممتعة 🤖'}
+                  </p>
+                  <div className="flex justify-between items-center pt-2 border-t border-pink-50">
+                    <button
+                      onClick={() => {
+                        triggerLightHaptic();
+                        if (userMood === 'shop') {
+                          document.getElementById('preset-products-section')?.scrollIntoView({ behavior: 'smooth' });
+                        } else if (userMood === 'shipment') {
+                          setActiveTab('tracking');
+                        } else if (userMood === 'query') {
+                          const triggerBtn = document.getElementById('hadoosha-assistant-trigger');
+                          if (triggerBtn) triggerBtn.click();
+                        }
+                        setUserMood(null);
+                      }}
+                      className="text-[10px] font-black text-pink-700 bg-pink-50 hover:bg-pink-100 px-3 py-1 rounded-full transition-all"
+                    >
+                      {userMood === 'shop' && 'استعراض العروض 🤩'}
+                      {userMood === 'shipment' && 'تتبع الآن 🚚'}
+                      {userMood === 'query' && 'اسألي هدوشة 💬'}
+                      {userMood === 'relax' && 'شكراً لكِ 💖'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        triggerLightHaptic();
+                        setUserMood(null);
+                      }}
+                      className="text-[10px] text-gray-400 hover:text-gray-600 font-bold"
+                    >
+                      إغلاق
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-          <div className="text-left">
-            <p className="text-2xl font-extrabold text-pink-700">{profile?.points?.toLocaleString() || 0}</p>
-            <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">Points</p>
+        ) : (
+          <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50/30 via-pink-50/50 to-amber-50/30 border border-pink-100 p-6 rounded-[2.25rem] shadow-sm text-right space-y-4">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-pink-400/5 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-indigo-400/5 rounded-full blur-2xl pointer-events-none" />
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] text-pink-700 font-extrabold bg-pink-100/50 py-1 px-3 rounded-full w-fit">
+                <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse" />
+                <span>أهلاً بكِ في آيرامو ستور ✨ زائرة جديدة متميزة!</span>
+              </div>
+              <h2 className="text-lg font-extrabold text-pink-950 mt-1">
+                اكتشفي المزايا الحصرية لخدماتنا 🌸
+              </h2>
+              <p className="text-xs text-gray-500 font-medium leading-relaxed max-w-[340px]">
+                انضمي لعائلتنا الأنيقة لتجربة شحن من الطراز الأول تتيح لكِ تتبعاً متكاملاً وإدارة دقيقة لكافة مشترياتكِ.
+              </p>
+            </div>
+
+            {/* Interactive Feature Tip Navigation for Guest */}
+            <div className="bg-white/80 backdrop-blur-md border border-pink-100/60 p-4 rounded-2xl space-y-3 shadow-xs">
+              <div className="grid grid-cols-3 gap-1 p-0.5 bg-pink-50/40 rounded-xl border border-pink-100/30">
+                {[
+                  { id: 'tracking', label: 'تتبع ذكي', icon: <Truck className="w-3.5 h-3.5" /> },
+                  { id: 'wallet', label: 'محفظة رقمية', icon: <Wallet className="w-3.5 h-3.5" /> },
+                  { id: 'loyalty', label: 'نقاط الولاء', icon: <Award className="w-3.5 h-3.5" /> }
+                ].map((tab) => {
+                  const isActive = guestActiveTip === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        triggerLightHaptic();
+                        setGuestActiveTip(tab.id);
+                      }}
+                      className={`py-1.5 px-1 rounded-lg text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        isActive
+                          ? 'bg-white text-pink-800 border border-pink-100 shadow-xs'
+                          : 'text-gray-400 hover:text-pink-900'
+                      }`}
+                    >
+                      {tab.icon}
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="text-xs text-pink-950 font-bold leading-relaxed min-h-[44px] flex items-center justify-center bg-pink-50/20 p-2.5 rounded-xl border border-pink-100/10 text-center">
+                {guestActiveTip === 'tracking' && '🚚 تتبعي مسار طرودكِ ووزنها الفعلي خطوة بخطوة من مستودعات تركيا وأمريكا حتى لحظة وصولها لباب منزلكِ.'}
+                {guestActiveTip === 'wallet' && '💳 اشحني رصيد محفظتكِ الرقمية فوراً لتسديد فواتير الشحن والتوصيل بكل سهولة وسرعة دون تعقيد.'}
+                {guestActiveTip === 'loyalty' && '🎟️ اجمعي النقاط الذهبية مع كل طلب شحن، واستبدليها بهدايا مميزة أو رصيد تسوق وشحن مجاني بالكامل!'}
+              </div>
+            </div>
+
+            {/* Premium CTA Button */}
+            <button
+              onClick={() => {
+                triggerMediumHaptic();
+                setShowLoginModal(true);
+              }}
+              className="w-full h-11 bg-gradient-to-r from-pink-500 to-pink-700 hover:from-pink-600 hover:to-pink-800 text-white font-bold text-xs rounded-full shadow-md shadow-pink-500/10 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <LogIn className="w-4 h-4" />
+              <span>تسجيل الدخول الآمن للبدء فوراً 🔑</span>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Loyalty & Wallet Grid */}
+      <div className="grid grid-cols-1 gap-4">
+        {!isLoggedIn ? (
+          <div className="bg-gradient-to-tr from-pink-50/40 via-white to-pink-50/20 border border-pink-100 p-6 rounded-[2.25rem] text-center space-y-4 shadow-xs">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-amber-400 to-rose-400 flex items-center justify-center text-slate-950 shadow-md">
+              <Sparkles className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="font-bold text-pink-950 text-sm">بوابة خدماتكِ الخاصة ✨</h3>
+              <p className="text-xs text-gray-500 font-medium leading-relaxed max-w-[280px] mx-auto">
+                سجلي الدخول الآن لمتابعة شحناتكِ وتفاصيل فواتيركِ وشحن محفظتكِ الرقمية فورياً.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                triggerMediumHaptic();
+                setShowLoginModal(true);
+              }}
+              className="w-full h-11 bg-gradient-to-r from-pink-500 to-pink-700 hover:from-pink-600 hover:to-pink-800 text-white font-bold text-xs rounded-full shadow-md shadow-pink-500/10 active:scale-95 transition-all cursor-pointer"
+            >
+              سجلي الدخول الآن 🌸
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Loyalty Card */}
+            {customizations.showLoyalty && (
+              <div className="bg-white/95 backdrop-blur-xl border border-pink-100 p-5 rounded-3xl shadow-xs flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-13 h-13 rounded-2xl bg-gradient-to-tr from-pink-400 to-pink-600 flex items-center justify-center text-white shadow-lg shadow-pink-500/15">
+                    <Award className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-800 text-sm">{profile?.membership || 'عضوية ذهبية'}</h3>
+                    <p className="text-[11px] text-gray-400 font-bold">نقاط الولاء المتاحة ✨</p>
+                  </div>
+                </div>
+                <div className="text-left">
+                  <p className="text-xl font-black text-pink-700">{profile?.points?.toLocaleString() || 0}</p>
+                  <p className="text-[9px] font-bold text-gray-400 tracking-widest uppercase">Points</p>
+                </div>
+              </div>
+            )}
+
+            {/* Wallet Card - Luxury credit card design */}
+            <div className="relative overflow-hidden bg-gradient-to-tr from-[#df8787] via-[#eb9d9d] to-[#fbc3c3] text-white p-5 rounded-[2.25rem] shadow-sm border border-white/20 select-none animate-fade-in">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
+              <div className="absolute -bottom-6 -left-6 w-24 h-24 bg-pink-900/10 rounded-full blur-xl"></div>
+              
+              <div className="flex justify-between items-start">
+                <div className="space-y-0.5">
+                  <span className="text-[8px] font-black tracking-widest text-pink-50/80 uppercase">IRAMO PREMIUM PASSPORT</span>
+                  <h3 className="font-bold text-xs text-white/95">{profile?.name || 'الأنيقة'}</h3>
+                </div>
+                <div className="w-9 h-6 bg-white/25 rounded-md backdrop-blur-md flex items-center justify-center border border-white/10">
+                  <span className="text-[8.5px] font-black text-pink-950">IRAMO</span>
+                </div>
+              </div>
+
+              <div className="my-4">
+                <p className="text-[9px] font-bold text-pink-50/70">رصيد محفظتكِ الحالية 💳</p>
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="text-xl font-black">{(profile?.walletBalance || 0).toLocaleString()}</span>
+                  <span className="text-[10px] font-black text-pink-50/90">د.ع</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2.5 border-t border-white/15">
+                <div className="text-[9px] font-mono text-pink-50/70 tracking-wider">
+                  **** **** **** {profile?.id?.slice(-4) || '3994'}
+                </div>
+                <button
+                  onClick={() => {
+                    triggerMediumHaptic();
+                    setRechargeModal(true);
+                  }}
+                  className="bg-white/95 hover:bg-white text-pink-900 text-[10px] font-black px-4 py-1.5 rounded-full shadow-xs transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+                >
+                  <PlusCircle className="w-3.5 h-3.5 text-pink-700" />
+                  <span>شحن سريع</span>
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Recharge Modal Popup Simulation */}
+      {rechargeModal && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 text-right space-y-4 shadow-2xl relative animate-scale-up">
+            <h3 className="font-black text-base text-pink-950">شحن المحفظة فورياً 💳</h3>
+            <p className="text-xs text-gray-500 font-bold leading-relaxed">
+              تصفحي خيارات شحن المحفظة السريعة لإضافة رصيد فوري لتسديد الفواتير والتوصيل الداخلي تلقائياً.
+            </p>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-black text-pink-900 block">حددي المبلغ المراد شحنه (د.ع):</label>
+              <div className="grid grid-cols-3 gap-2">
+                {['15,000', '25,000', '50,000'].map((amt) => (
+                  <button
+                    key={amt}
+                    onClick={() => {
+                      triggerSuccessHaptic();
+                      alert(`تم تقديم طلب شحن بقيمة ${amt} د.ع بنجاح! سيتم مراجعة الدفع وتحديث المحفظة فوراً.`);
+                      setRechargeModal(false);
+                    }}
+                    className="bg-pink-50/50 hover:bg-pink-100/80 border border-pink-100 text-pink-900 font-black text-xs py-2 rounded-2xl transition-all"
+                  >
+                    {amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                triggerSuccessHaptic();
+                alert("يرجى التواصل مع خدمة زبائن إيرامو ستور لإرسال بطاقة شحن آسيا سيل أو زين كاش مباشرة وتفعيلها في ثوانٍ 💖");
+                setRechargeModal(false);
+              }}
+              className="w-full bg-pink-700 hover:bg-pink-800 text-white font-black text-xs py-3 rounded-2xl shadow-sm transition-all active:scale-95 cursor-pointer"
+            >
+              شحن عبر زين كاش / آسيا سيل 💬
+            </button>
+
+            <button
+              onClick={() => {
+                triggerLightHaptic();
+                setRechargeModal(false);
+              }}
+              className="w-full text-center text-xs font-bold text-gray-400 hover:text-gray-600 py-1"
+            >
+              إلغاء
+            </button>
           </div>
         </div>
       )}
+
+      {/* Promotions & Active Coupons Section */}
+      <section className="space-y-3 text-right">
+        <div className="flex justify-between items-center px-1">
+          <h3 className="font-extrabold text-xs text-pink-950 flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-pink-600" />
+            عروض وكوبونات حصرية لِكِ 🎟️
+          </h3>
+          <span className="text-[9px] font-black bg-pink-100 text-pink-800 px-2 py-0.5 rounded-lg">خصومات حية</span>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+          {[
+            { code: 'IRAMO15', desc: 'خصم 15% على شحن العطور ومستحضرات التجميل', value: '15%' },
+            { code: 'FREESHIP', desc: 'شحن داخلي مجاني عند الطلب بأكثر من 3 كغم', value: 'توصيل مجاني' },
+            { code: 'DISNEY20', desc: 'خصم 20% على شحنات ديزني لاند الخاصة', value: '20%' }
+          ].map((promo) => (
+            <div
+              key={promo.code}
+              className="w-[220px] shrink-0 bg-white border border-pink-100 p-4 rounded-3xl relative overflow-hidden flex flex-col justify-between h-28 shadow-xs"
+            >
+              <div className="absolute -top-6 -left-6 w-14 h-14 bg-pink-50 rounded-full blur-md"></div>
+              <div>
+                <span className="text-[9px] font-extrabold text-pink-700 uppercase bg-pink-50 px-2 py-0.5 rounded-md">{promo.value}</span>
+                <p className="text-[10px] text-gray-500 font-bold mt-1 leading-snug line-clamp-2">{promo.desc}</p>
+              </div>
+              <div className="flex justify-between items-center mt-2.5">
+                <span className="font-mono text-[10px] font-black text-pink-900">{promo.code}</span>
+                <button
+                  onClick={() => {
+                    triggerSuccessHaptic();
+                    navigator.clipboard.writeText(promo.code);
+                    setCopiedCode(promo.code);
+                    setTimeout(() => setCopiedCode(null), 2000);
+                  }}
+                  className="bg-pink-50 hover:bg-pink-100 text-[9px] font-black px-3 py-1 rounded-full text-pink-800 border border-pink-100/30 transition-all cursor-pointer"
+                >
+                  {copiedCode === promo.code ? 'تم النسخ ✓' : 'نسخ الكود'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+
 
       {/* Active Shipment / Quick Action */}
       <div className="bg-white/95 backdrop-blur-xl border border-pink-100 p-6 rounded-3xl shadow-sm">
@@ -497,100 +900,8 @@ export default function DashboardView() {
         </div>
       </section>
 
-      {/* Preset Ready Products Gallery Showcase */}
-      {presetProducts.length > 0 && (
-        <section className="space-y-4 text-right">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="font-black text-lg text-gray-800 flex items-center gap-1.5">
-                <ShoppingBag className="w-5 h-5 text-pink-700" />
-                <span>منتجات مميزة جاهزة للشحن الفوري 🛍️</span>
-              </h3>
-              <p className="text-[10px] text-gray-400 font-semibold">تسوقي أجمل المنتجات الأصلية المختارة بأسعار مميزة جداً</p>
-            </div>
-          </div>
-
-          {/* Search bar & Category badge row */}
-          <div className="space-y-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="البحث باسم المنتج الجاهز..."
-                value={presetSearch}
-                onChange={(e) => setPresetSearch(e.target.value)}
-                className="w-full bg-white border border-pink-100 text-xs px-4 pr-10 py-2.5 rounded-2xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
-              />
-              <Search className="w-4.5 h-4.5 text-pink-400 absolute right-3.5 top-3" />
-            </div>
-
-            {/* Scrolling Category Badges */}
-            <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none" dir="rtl">
-              {presetCategories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-1.5 rounded-full text-[10px] font-black transition-all shrink-0 cursor-pointer ${
-                    selectedCategory === cat
-                      ? 'bg-pink-700 text-white shadow-xs'
-                      : 'bg-white text-gray-500 border border-pink-50'
-                  }`}
-                >
-                  {cat === 'الكل' ? '✨ الكل' : cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Product Cards Grid */}
-          <div className="grid grid-cols-2 gap-3.5">
-            {filteredPresets.map((prod) => (
-              <div 
-                key={prod.id}
-                className="bg-white border border-pink-50/60 rounded-3xl p-3 flex flex-col justify-between shadow-xs hover:shadow-md transition-all h-[240px]"
-              >
-                <div className="space-y-2">
-                  <div className="w-full h-24 rounded-2xl overflow-hidden bg-pink-50 border border-pink-100 relative">
-                    <img
-                      src={prod.image || "https://images.unsplash.com/photo-1586495777744-4413f21062fa?auto=format&fit=crop&q=80&w=250"}
-                      alt={prod.name}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    <span className="absolute bottom-1 right-1.5 bg-pink-700/90 text-white font-extrabold text-[7.5px] px-2 py-0.5 rounded-full shadow-xs">
-                      {prod.category}
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="font-extrabold text-[10.5px] text-gray-800 line-clamp-2 leading-tight h-8 overflow-hidden">
-                      {prod.name}
-                    </h4>
-                    <p className="text-pink-700 font-black text-xs mt-1">
-                      {prod.price.toLocaleString()} د.ع
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => {
-                    const orderMsg = `مرحباً هدوشة وبطوط ✨\nأود طلب المنتج الجاهز التالي المعروض في تطبيق إيرامو ستور:\nالمنتج: "${prod.name}"\nالسعر: ${prod.price.toLocaleString()} د.ع\nالرجاء تأكيد الحجز والطلب 💖`;
-                    window.open(getWhatsAppLink(orderMsg), '_blank');
-                  }}
-                  className="w-full bg-pink-50 text-pink-700 hover:bg-pink-100 font-extrabold text-[9px] py-2 rounded-xl flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer border border-pink-100/30"
-                >
-                  <ShoppingCart className="w-3.5 h-3.5" />
-                  <span>طلب وحجز فوري 🛍️</span>
-                </button>
-              </div>
-            ))}
-
-            {filteredPresets.length === 0 && (
-              <div className="col-span-2 text-center py-8 text-xs text-gray-400 bg-white/50 rounded-3xl border border-pink-50">
-                لا يوجد منتجات تطابق البحث في هذه الفئة.
-              </div>
-            )}
-          </div>
-        </section>
-      )}
+      {/* Iramo Products List Showcase Component */}
+      <IramoProductsList />
 
       {/* Recent Invoices */}
       <section className="pb-8 text-right">

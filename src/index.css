@@ -1,23 +1,45 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Aref+Ruqaa:wght@700&family=Mrs+Saint+Delafield&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Plus Jakarta Sans", "Noto Sans Arabic", sans-serif;
   --font-serif: "Be Vietnam Pro", sans-serif;
+  --font-signature: "Mrs Saint Delafield", cursive;
+  --font-signature-ar: "Aref Ruqaa", serif;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #fff8f6;
+  background-color: #fcebeb; /* Soft rose gold/pastel background on desktop */
+  background-image: radial-gradient(circle at 10% 20%, rgba(253, 239, 237, 1) 0%, rgba(254, 224, 225, 0.45) 90.1%);
   direction: rtl;
   min-height: 100vh;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(253, 226, 228, 0.5);
+}
+
+.glass-panel-dark {
+  background: rgba(45, 10, 18, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(253, 226, 228, 0.15);
 }
 
 /* Animations & Keyframes */
 @keyframes float {
-  0% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-  100% { transform: translateY(0px); }
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+  100% { transform: translateY(0px) rotate(0deg); }
 }
 
 .float-animation {
@@ -54,4 +76,10 @@ button:active,
 .cursor-pointer:active {
   transform: scale(0.95);
 }
+
+/* Safari and mobile tap highlight removal */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 

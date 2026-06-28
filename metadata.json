@@ -1,6 +1,6 @@
 {
   "name": "IRAMO STORE",
-  "description": "مركز التتبع وإدارة الفواتير لمتجر إيرامو مع نظام الولاء والتنبيهات المباشرة المرتبطة بقاعدة بيانات حقيقية",
-  "requestFramePermissions": [],
+  "description": "Luminous Heritage - المنصة اللوجستية الفاخرة وشحن الطرود الذكي في العراق بالتعاون مع هدوشة وبطوط الكيوت مع تتبع فوري وجداول تسعير ذكية ومساعد ذكي مدعوم بالذكاء الاصطناعي",
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

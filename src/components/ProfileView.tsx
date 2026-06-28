@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { User, Phone, MapPin, Edit, Check, Star, Gift, ChevronLeft, LogOut, Camera, Shield, Wallet, Bell, AlertCircle, ShoppingBag, Globe, X, CreditCard, Lock, ShieldCheck, HelpCircle, ArrowLeft, CheckCircle } from 'lucide-react';
+import { User, Phone, MapPin, Edit, Check, Star, Gift, ChevronLeft, LogOut, Camera, Shield, Wallet, Bell, AlertCircle, ShoppingBag, Globe, X, CreditCard, Lock, ShieldCheck, HelpCircle, ArrowLeft, CheckCircle, Database, Loader2, Upload, Award, Share2, Ticket, Link, Compass } from 'lucide-react';
+import { runFirestoreDiagnosticTest, DiagnosticResult } from '../lib/firebase';
 
 const AVAILABLE_STORES = [
   {
@@ -114,7 +115,7 @@ const AVAILABLE_STORES = [
 ];
 
 export default function ProfileView() {
-  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode } = useApp();
+  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode, logout } = useApp();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [name, setName] = useState<string>(profile?.name || '');
   const [phone, setPhone] = useState<string>(profile?.phone || '');
@@ -131,6 +132,99 @@ export default function ProfileView() {
   const [passcodeError, setPasscodeError] = useState<boolean>(false);
   const [showAvatarModal, setShowAvatarModal] = useState<boolean>(false);
   const [newAvatarUrl, setNewAvatarUrl] = useState<string>('');
+
+  // New modal for editing profile with camera capture
+  const [showEditProfileModal, setShowEditProfileModal] = useState<boolean>(false);
+  const [editName, setEditName] = useState<string>('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState<string>('');
+  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+
+  // Database connection diagnostic states
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState<boolean>(false);
+  const [diagnosticResult, setDiagnosticResult] = useState<DiagnosticResult | null>(null);
+  const [isTestingDatabase, setIsTestingDatabase] = useState<boolean>(false);
+
+  const handleRunDiagnostics = async () => {
+    setIsTestingDatabase(true);
+    setDiagnosticResult(null);
+    setShowDiagnosticModal(true);
+    try {
+      const res = await runFirestoreDiagnosticTest();
+      setDiagnosticResult(res);
+    } catch (e) {
+      console.error("Diagnostic error caught:", e);
+    } finally {
+      setIsTestingDatabase(false);
+    }
+  };
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 400, height: 400, facingMode: 'user' }
+      });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.warn("Video play error:", e));
+        }
+      }, 100);
+    } catch (err: any) {
+      console.error("Camera access error:", err);
+      setCameraError("لم نتمكن من تشغيل الكاميرا. يرجى السماح بالوصول للكاميرا في المتصفح أو المحاولة بمتصفح آخر.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 400;
+      canvas.height = video.videoHeight || 400;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        setEditAvatarUrl(dataUrl);
+        stopCamera();
+      }
+    }
+  };
+
+  const closeEditProfileModal = () => {
+    stopCamera();
+    setShowEditProfileModal(false);
+  };
+
+  const handleSaveEditProfile = async () => {
+    setSaving(true);
+    if (profile) {
+      await updateProfile(editName, profile.phone, profile.city);
+    }
+    if (editAvatarUrl) {
+      await updateAvatar(editAvatarUrl);
+    }
+    setSaving(false);
+    closeEditProfileModal();
+  };
 
   // Wallet & Mastercard payment options states
   const [showPaymentMethods, setShowPaymentMethods] = useState<boolean>(false);
@@ -154,6 +248,13 @@ export default function ProfileView() {
   const [topupAmount, setTopupAmount] = useState<string>('25000');
   const [isToppingUp, setIsToppingUp] = useState<boolean>(false);
   const [topupSuccess, setTopupSuccess] = useState<boolean>(false);
+
+  // Luminous Heritage Premium states
+  const [showVipModal, setShowVipModal] = useState<boolean>(false);
+  const [showSpinWheelModal, setShowSpinWheelModal] = useState<boolean>(false);
+  const [showReferralModal, setShowReferralModal] = useState<boolean>(false);
+  const [showTicketsModal, setShowTicketsModal] = useState<boolean>(false);
+  const [showPublicTrackingModal, setShowPublicTrackingModal] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (profile) {
@@ -278,11 +379,13 @@ export default function ProfileView() {
             <button 
               onClick={(e) => {
                 e.stopPropagation();
-                setShowAvatarModal(true);
+                setEditName(profile?.name || '');
+                setEditAvatarUrl(profile?.avatar || '');
+                setShowEditProfileModal(true);
               }}
               className="absolute -bottom-1 -left-1 bg-pink-700 text-white p-2 rounded-full shadow-lg border-2 border-white cursor-pointer active:scale-90 transition-transform flex items-center gap-2 px-3">
               <Camera className="w-4.5 h-4.5" />
-              <span className="text-[10px] font-bold">تغيير الصورة</span>
+              <span className="text-[10px] font-bold">تعديل الملف</span>
             </button>
           </div>
         </div>
@@ -293,6 +396,16 @@ export default function ProfileView() {
             <Star className="w-4 h-4 fill-pink-800 text-pink-800" />
             <span className="text-[11px] font-bold tracking-wide">{profile?.membership || 'عضوية ذهبية'}</span>
           </div>
+          {/* Logout button */}
+          <button
+            onClick={() => {
+              logout();
+            }}
+            className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 text-gray-600 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-100 border border-transparent rounded-full text-[10px] font-bold cursor-pointer transition-all active:scale-95"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>تسجيل الخروج</span>
+          </button>
         </div>
       </section>
 
@@ -504,12 +617,84 @@ export default function ProfileView() {
             </div>
             <ChevronLeft className="w-4 h-4 text-gray-300 animate-pulse" />
           </div>
+
+          <div 
+            onClick={() => setShowVipModal(true)}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors animate-fade-in"
+          >
+            <div className="flex items-center gap-4">
+              <Award className="w-5 h-5 text-pink-700 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-bold text-pink-800">العضوية الممتازة والامتيازات 👑</span>
+            </div>
+            <span className="text-[9px] bg-pink-100 text-pink-700 font-bold px-2 py-0.5 rounded-full">
+              {profile?.membership || 'عضوية ذهبية'}
+            </span>
+          </div>
+
+          <div 
+            onClick={() => setShowSpinWheelModal(true)}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors animate-fade-in"
+          >
+            <div className="flex items-center gap-4">
+              <Compass className="w-5 h-5 text-rose-600 animate-spin-slow" />
+              <span className="text-xs font-bold text-rose-800">عجلة الحظ والهدايا اليومية 🎡</span>
+            </div>
+            <span className="text-[9px] bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded-full animate-pulse">
+              العبِ الآن! 🎁
+            </span>
+          </div>
+
+          <div 
+            onClick={() => setShowReferralModal(true)}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors animate-fade-in"
+          >
+            <div className="flex items-center gap-4">
+              <Share2 className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-semibold text-gray-700">دعوة صديقة وربح نقاط مجانية 👥</span>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-gray-300" />
+          </div>
+
+          <div 
+            onClick={() => setShowTicketsModal(true)}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors animate-fade-in"
+          >
+            <div className="flex items-center gap-4">
+              <Ticket className="w-5 h-5 text-emerald-600 group-hover:rotate-12 transition-transform" />
+              <span className="text-xs font-semibold text-gray-700">تذاكر الدعم الفني واستفسارات هدى 🎫</span>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-gray-300" />
+          </div>
+
+          <div 
+            onClick={() => setShowPublicTrackingModal(true)}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors animate-fade-in"
+          >
+            <div className="flex items-center gap-4">
+              <Link className="w-5 h-5 text-indigo-600 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-semibold text-gray-700">إنشاء رابط التتبع العام للطرود 🔗</span>
+            </div>
+            <ChevronLeft className="w-4 h-4 text-gray-300" />
+          </div>
+
           <div className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors">
             <div className="flex items-center gap-4">
               <Bell className="w-5 h-5 text-gray-500 group-hover:text-pink-700" />
               <span className="text-xs font-semibold text-gray-700">إعدادات التنبيهات المباشرة</span>
             </div>
             <ChevronLeft className="w-4 h-4 text-gray-300" />
+          </div>
+          <div 
+            onClick={handleRunDiagnostics}
+            className="flex items-center justify-between p-5 bg-pink-50/10 hover:bg-pink-50/30 cursor-pointer group transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <Database className="w-5 h-5 text-pink-600 group-hover:text-pink-700 animate-pulse" />
+              <span className="text-xs font-bold text-pink-700">فحص اتصال قاعدة البيانات (Firestore)</span>
+            </div>
+            <span className="text-[10px] bg-pink-100 text-pink-700 font-bold px-2.5 py-1 rounded-full group-hover:bg-pink-200 transition-colors">
+              فحص الآن ⚡
+            </span>
           </div>
         </div>
       </section>
@@ -860,12 +1045,41 @@ export default function ProfileView() {
               </div>
             </div>
 
+            {/* Direct File Upload */}
+            <div className="space-y-1.5 text-right">
+              <span className="text-[10px] text-gray-400 font-bold block">أو قومي برفع صورة مباشرة 📁:</span>
+              <label className="w-full bg-pink-50 hover:bg-pink-100 text-pink-700 hover:text-pink-800 border border-pink-100 py-2.5 rounded-xl text-xs font-black cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-1.5">
+                <Upload className="w-3.5 h-3.5" />
+                <span>رفع صورة من جهازكِ</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                          setNewAvatarUrl(reader.result);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </label>
+              {newAvatarUrl && newAvatarUrl.startsWith('data:image/') && (
+                <p className="text-[9.5px] text-emerald-600 font-bold text-center">✓ تم تحميل الصورة المرفوعة (اضغطي حفظ)</p>
+              )}
+            </div>
+
             <div className="space-y-1 text-right">
               <span className="text-[10px] text-gray-400 font-bold block">أو أدخلي رابط صورتكِ الخاصة:</span>
               <input 
                 type="text"
                 placeholder="رابط الصورة (URL)"
-                value={newAvatarUrl}
+                value={newAvatarUrl.startsWith('data:image/') ? '' : newAvatarUrl}
                 onChange={(e) => setNewAvatarUrl(e.target.value)}
                 className="w-full bg-gray-50 border border-pink-100 text-xs font-bold py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all text-right px-3"
               />
@@ -898,6 +1112,873 @@ export default function ProfileView() {
         </div>
       )}
 
+      {/* Unified Edit Profile Modal with Camera Capture tool */}
+      {showEditProfileModal && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+          <div className="bg-white w-full max-w-sm rounded-[2rem] p-6 shadow-2xl space-y-5 border border-pink-100 max-h-[92vh] overflow-y-auto no-scrollbar">
+            
+            {/* Header */}
+            <div className="text-center relative">
+              <button 
+                onClick={closeEditProfileModal}
+                className="absolute top-0 right-0 w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-500 hover:text-pink-700 hover:bg-pink-50 transition-colors shadow-sm cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="w-12 h-12 bg-pink-100 text-pink-700 rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner">
+                <User className="w-6 h-6" />
+              </div>
+              <h4 className="font-black text-gray-800 text-sm">تعديل الملف الشخصي الأنيق</h4>
+              <p className="text-[10px] text-gray-400 mt-1 leading-relaxed font-bold">
+                قومي بتحديث اسمكِ أو التقاط صورة شخصية جميلة بالكاميرا مباشرة 📸
+              </p>
+            </div>
+
+            {/* Photo Section */}
+            <div className="space-y-3">
+              <span className="text-[11px] text-gray-500 font-bold block text-right border-r-2 border-pink-500 pr-2">الصورة الشخصية:</span>
+              
+              {/* Image Preview & Active Video Stream Container */}
+              <div className="relative w-40 h-40 mx-auto rounded-full overflow-hidden border-4 border-white shadow-lg ring-4 ring-pink-100/50 bg-gray-50 flex items-center justify-center">
+                {isCameraActive ? (
+                  <div className="w-full h-full relative">
+                    <video 
+                      ref={videoRef} 
+                      playsInline 
+                      muted 
+                      className="w-full h-full object-cover scale-x-[-1]"
+                    />
+                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-red-600/80 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                      <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+                      مباشر
+                    </div>
+                  </div>
+                ) : (
+                  <img 
+                    src={editAvatarUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'} 
+                    alt="New Avatar Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+
+              {/* Camera Actions & File upload buttons */}
+              <div className="space-y-2">
+                {isCameraActive ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={capturePhoto}
+                      className="flex-1 bg-pink-700 hover:bg-pink-800 text-white text-xs font-black py-2 rounded-xl shadow-md flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4" />
+                      التقاط الصورة 📸
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-black py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                      إلغاء الكاميرا
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="w-full bg-pink-50 hover:bg-pink-100 text-pink-700 hover:text-pink-800 border border-pink-100/60 py-2.5 rounded-xl text-xs font-black transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Camera className="w-4 h-4" />
+                    تشغيل كاميرا الجهاز والتقاط صورة 🤳
+                  </button>
+                )}
+
+                {cameraError && (
+                  <p className="text-[10px] text-red-600 font-bold leading-relaxed bg-red-50 p-2 rounded-lg text-center animate-fade-in">
+                    ⚠️ {cameraError}
+                  </p>
+                )}
+
+                {/* Local Upload as backup option */}
+                {!isCameraActive && (
+                  <div className="flex items-center gap-2">
+                    <label className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-700 border border-gray-200 py-2 rounded-xl text-xs font-black cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>رفع صورة من الملفات 📁</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              if (typeof reader.result === 'string') {
+                                setEditAvatarUrl(reader.result);
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Display Name Section */}
+            <div className="space-y-2 text-right">
+              <label className="text-[11px] text-gray-500 font-bold block border-r-2 border-pink-500 pr-2">الاسم الشخصي الجديد:</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="أدخلي اسمكِ الكامل هنا..."
+                  required
+                  className="w-full bg-gray-50/50 border border-pink-100 text-xs font-bold py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all text-right px-4 pr-10"
+                />
+                <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-pink-700/60" />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-2 border-t border-pink-50">
+              <button 
+                onClick={handleSaveEditProfile}
+                disabled={saving || !editName.trim()}
+                className="flex-[2] bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 disabled:opacity-50 text-white text-xs font-black py-3 rounded-xl active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-pink-700/10"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    جاري الحفظ...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    حفظ التغييرات ✨
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={closeEditProfileModal}
+                disabled={saving}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-500 text-xs font-black py-3 rounded-xl active:scale-[0.98] transition-all cursor-pointer"
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Firestore Diagnostics Modal */}
+      {showDiagnosticModal && (
+        <div className="fixed inset-0 z-55 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-5 border border-pink-100 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 border-b border-pink-50 pb-3">
+              <div className="w-10 h-10 bg-pink-100 text-pink-700 rounded-2xl flex items-center justify-center shrink-0">
+                <Database className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="text-right">
+                <h4 className="font-extrabold text-gray-800 text-sm">فحص تشخيص اتصال Firestore</h4>
+                <p className="text-[10px] text-gray-400 font-bold">مراقبة حالة الاتصال والتحقق من العمليات الحية</p>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-gray-500 leading-relaxed font-semibold text-right">
+              يقوم هذا الفحص بإجراء الخطوات الأربع المطلوبة للتحقق من الاتصال بقاعدة البيانات الحية وسحابة Google Firestore:
+            </p>
+
+            {/* Diagnostic Steps Timeline */}
+            <div className="space-y-4 text-right">
+              {/* Step 1: Auth */}
+              <div className="flex items-start gap-3 border border-pink-50/50 rounded-2xl p-3 bg-pink-50/10">
+                <div className="mt-0.5">
+                  {isTestingDatabase && !diagnosticResult ? (
+                    <Loader2 className="w-5 h-5 text-pink-600 animate-spin" />
+                  ) : diagnosticResult?.step1Auth.status === 'success' ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-600 fill-emerald-50" />
+                  ) : diagnosticResult?.step1Auth.status === 'failed' ? (
+                    <AlertCircle className="w-5 h-5 text-rose-600" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-200" />
+                  )}
+                </div>
+                <div className="flex-1 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-gray-800">١. تسجيل الدخول المجهول (Anonymous Auth)</span>
+                    {diagnosticResult?.step1Auth.errorCode && (
+                      <span className="font-mono text-[9px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-black">
+                        {diagnosticResult.step1Auth.errorCode}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1 font-semibold">
+                    {diagnosticResult ? diagnosticResult.step1Auth.message : 'جاري التحقق...'}
+                  </p>
+                  {diagnosticResult?.step1Auth.uid && (
+                    <div className="mt-1 font-mono text-[9px] bg-gray-50 p-1 rounded text-gray-500 select-all">
+                      UID: {diagnosticResult.step1Auth.uid}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 2: Create Doc */}
+              <div className="flex items-start gap-3 border border-pink-50/50 rounded-2xl p-3 bg-pink-50/10">
+                <div className="mt-0.5">
+                  {isTestingDatabase && !diagnosticResult ? (
+                    <Loader2 className="w-5 h-5 text-pink-600 animate-spin" />
+                  ) : diagnosticResult?.step2Create.status === 'success' ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-600 fill-emerald-50" />
+                  ) : diagnosticResult?.step2Create.status === 'failed' ? (
+                    <AlertCircle className="w-5 h-5 text-rose-600" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-200" />
+                  )}
+                </div>
+                <div className="flex-1 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-gray-800">٢. كتابة مستند اختبار إلى Firestore</span>
+                    {diagnosticResult?.step2Create.errorCode && (
+                      <span className="font-mono text-[9px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-black">
+                        {diagnosticResult.step2Create.errorCode}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1 font-semibold">
+                    {diagnosticResult ? diagnosticResult.step2Create.message : 'بانتظار تسجيل الدخول...'}
+                  </p>
+                  {diagnosticResult?.step2Create.docId && (
+                    <div className="mt-1 font-mono text-[9px] bg-gray-50 p-1.5 rounded text-gray-500">
+                      ID: {diagnosticResult.step2Create.docId}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 3: Read Doc */}
+              <div className="flex items-start gap-3 border border-pink-50/50 rounded-2xl p-3 bg-pink-50/10">
+                <div className="mt-0.5">
+                  {isTestingDatabase && !diagnosticResult ? (
+                    <Loader2 className="w-5 h-5 text-pink-600 animate-spin" />
+                  ) : diagnosticResult?.step3Read.status === 'success' ? (
+                    <CheckCircle className="w-5 h-5 text-emerald-600 fill-emerald-50" />
+                  ) : diagnosticResult?.step3Read.status === 'failed' ? (
+                    <AlertCircle className="w-5 h-5 text-rose-600" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full bg-gray-200" />
+                  )}
+                </div>
+                <div className="flex-1 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold text-gray-800">٣. قراءة المستند ومطابقة البيانات</span>
+                    {diagnosticResult?.step3Read.errorCode && (
+                      <span className="font-mono text-[9px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded font-black">
+                        {diagnosticResult.step3Read.errorCode}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-1 font-semibold">
+                    {diagnosticResult ? diagnosticResult.step3Read.message : 'بانتظار كتابة المستند...'}
+                  </p>
+                  {diagnosticResult?.step3Read.data && (
+                    <div className="mt-2 text-right space-y-1">
+                      <span className="text-[9px] text-gray-400 font-bold block">البيانات المسترجعة:</span>
+                      <pre className="font-mono text-[9px] bg-gray-50 p-2 rounded-xl text-left border border-gray-100 overflow-x-auto text-pink-700" dir="ltr">
+                        {JSON.stringify(diagnosticResult.step3Read.data, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Verdict Alert */}
+            {diagnosticResult && (
+              <div className={`p-4 rounded-2xl text-right animate-fade-in ${
+                diagnosticResult.overallSuccess 
+                  ? 'bg-emerald-50 border border-emerald-100 text-emerald-800' 
+                  : 'bg-rose-50 border border-rose-100 text-rose-800'
+              }`}>
+                <h5 className="font-black text-xs mb-1">
+                  {diagnosticResult.overallSuccess ? '🎉 نجاح تشخيص الاتصال!' : '❌ فشل الفحص أو تعثر الاتصال'}
+                </h5>
+                <p className="text-[10px] opacity-90 leading-relaxed font-bold">
+                  {diagnosticResult.overallSuccess 
+                    ? 'تعمل قاعدة بيانات Firestore الآن بكفاءة وبشكل فوري وحقيقي بالكامل دون أي انقطاع!' 
+                    : 'يرجى مراجعة تفاصيل ورموز الخطأ لكل خطوة لتحديد سبب عدم الاتصال بالخادم.'}
+                </p>
+              </div>
+            )}
+
+            {/* Controls */}
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                onClick={handleRunDiagnostics}
+                disabled={isTestingDatabase}
+                className="flex-1 bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 disabled:opacity-50 text-white text-xs font-black py-3 rounded-2xl active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-pink-700/10"
+              >
+                {isTestingDatabase ? (
+                  <>
+                    <Loader2 className="w-4.5 h-4.5 animate-spin" />
+                    <span>جاري الفحص...</span>
+                  </>
+                ) : (
+                  <span>إعادة الفحص والتشخيص 🔄</span>
+                )}
+              </button>
+              <button 
+                onClick={() => {
+                  setShowDiagnosticModal(false);
+                  setDiagnosticResult(null);
+                }}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-black px-5 py-3 rounded-2xl active:scale-[0.98] transition-all cursor-pointer"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1. VIP Membership Modal */}
+      {showVipModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-pink-50">
+              <h3 className="font-extrabold text-pink-700 text-base flex items-center gap-2">
+                <Award className="w-5 h-5" /> العضوية والامتيازات المفتوحة
+              </h3>
+              <button 
+                onClick={() => setShowVipModal(false)}
+                className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-gradient-to-br from-pink-700 to-rose-600 p-5 rounded-3xl text-white shadow-md text-center">
+                <p className="text-xs text-pink-100 font-bold">مستوى العضوية الحالي</p>
+                <h4 className="text-2xl font-black mt-1">{profile?.membership || 'العضوية الذهبية VIP'}</h4>
+                <p className="text-[10px] text-pink-200 mt-2">مجموع نقاطكِ: {(profile?.points || 0).toLocaleString()} نقطة</p>
+              </div>
+
+              <div className="space-y-3">
+                <h5 className="font-black text-xs text-gray-800">تفاصيل الامتيازات المتاحة لكِ:</h5>
+                <div className="space-y-2.5">
+                  <div className="flex gap-3 items-start p-3 bg-pink-50/40 rounded-2xl border border-pink-100/30">
+                    <span className="text-lg">✨</span>
+                    <div>
+                      <h6 className="font-bold text-xs text-pink-800">خصم شحن فوري 10%</h6>
+                      <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">يتم احتساب الخصم تلقائياً عند إصدار فواتير شحن المتاجر المعتمدة.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 items-start p-3 bg-pink-50/40 rounded-2xl border border-pink-100/30">
+                    <span className="text-lg">📦</span>
+                    <div>
+                      <h6 className="font-bold text-xs text-pink-800">أولوية الفرز والتجميع</h6>
+                      <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">تُفرز شحناتكِ في مستودعات الصين والإمارات والكويت في مسار VIP السريع.</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 items-start p-3 bg-pink-50/40 rounded-2xl border border-pink-100/30">
+                    <span className="text-lg">🎀</span>
+                    <div>
+                      <h6 className="font-bold text-xs text-pink-800">تغليف هدايا كشميري مجاني</h6>
+                      <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">يمكنكِ طلب تغليف الطرود بهدايا فخمة عبر التواصل مع هدوشة.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowVipModal(false)}
+              className="w-full py-3.5 bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white font-black rounded-2xl text-xs active:scale-[0.98] transition-all"
+            >
+              موافق، جميل جداً 💕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Spin Wheel Modal */}
+      {showSpinWheelModal && (
+        <SpinWheelModal 
+          onClose={() => setShowSpinWheelModal(false)} 
+          points={profile?.points || 0}
+          onWin={async (amount, type) => {
+            if (profile) {
+              const newPoints = type === 'points' ? (profile.points + amount) : profile.points;
+              const newBalance = type === 'balance' ? ((profile.walletBalance ?? 250000) + amount) : (profile.walletBalance ?? 250000);
+              await updateProfile(
+                profile.name,
+                profile.phone,
+                profile.city,
+                newBalance,
+                profile.savedCardNumber,
+                profile.savedCardHolder,
+                profile.savedCardExpiry
+              );
+              // Set the points manually in AppContext if necessary, otherwise use updateProfile or custom function
+              // Let's call updateProfile to trigger context update
+              if (type === 'points') {
+                await redeemPoints(-amount); // adding points is reverse of redeeming
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* 3. Referral Modal */}
+      {showReferralModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-pink-50">
+              <h3 className="font-extrabold text-pink-700 text-base flex items-center gap-2">
+                <Share2 className="w-5 h-5" /> دعوة صديقة وربح نقاط مجانية
+              </h3>
+              <button 
+                onClick={() => setShowReferralModal(false)}
+                className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 font-bold leading-relaxed">
+                شاركي كود دعوتكِ الخاص مع صديقاتكِ المقربات، وعند قيام أي صديقة بالتسجيل وشحن أول طرد، ستحصل كل منكما على <span className="text-pink-700 font-extrabold">200 نقطة ولاء مجانية</span> فوراً! 🎁✨
+              </p>
+
+              <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50 flex items-center justify-between">
+                <div className="text-right">
+                  <span className="text-[10px] text-gray-400 font-bold">كود دعوتكِ الفاخر</span>
+                  <p className="text-sm font-black text-pink-800 uppercase tracking-widest mt-0.5">LUM-{profile?.phone?.slice(-4) || '7755'}</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(`LUM-${profile?.phone?.slice(-4) || '7755'}`);
+                    alert('تم نسخ كود الدعوة بنجاح جميلتي! 🌸');
+                  }}
+                  className="bg-pink-700 text-white text-[11px] font-black px-4 py-2 rounded-xl active:scale-95 transition-transform"
+                >
+                  نسخ الكود 📋
+                </button>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <label className="text-xs font-bold text-gray-700">هل لديكِ كود دعوة من صديقة؟</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="أدخلي كود دعوة صديقتكِ هنا..." 
+                    className="flex-1 px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs font-bold focus:outline-none focus:border-pink-500 text-center"
+                  />
+                  <button 
+                    onClick={async () => {
+                      if (profile) {
+                        await redeemPoints(-150); // Give 150 points as a reward
+                        alert('تم تفعيل كود الدعوة بنجاح! تم منحكِ 150 نقطة ولاء مجانية في رصيدكِ 🥳💖');
+                        setShowReferralModal(false);
+                      }
+                    }}
+                    className="bg-gradient-to-r from-pink-700 to-rose-600 text-white text-xs font-black px-4 py-2.5 rounded-xl active:scale-95 transition-transform"
+                  >
+                    تفعيل الكود ✨
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setShowReferralModal(false)}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl text-xs active:scale-[0.98] transition-all"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Support Tickets Modal */}
+      {showTicketsModal && (
+        <SupportTicketsModal 
+          onClose={() => setShowTicketsModal(false)}
+          profile={profile}
+          shipments={shipments}
+        />
+      )}
+
+      {/* 5. Public Tracking Modal */}
+      {showPublicTrackingModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
+          <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-5">
+            <div className="flex justify-between items-center pb-3 border-b border-pink-50">
+              <h3 className="font-extrabold text-pink-700 text-base flex items-center gap-2">
+                <Link className="w-5 h-5" /> رابط التتبع العام والشخصي
+              </h3>
+              <button 
+                onClick={() => setShowPublicTrackingModal(false)}
+                className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 font-bold leading-relaxed">
+                هل ترغبين في تزويد عائلتكِ أو زبوناتكِ برابط لتتبع شحناتكِ المفتوحة دون الحاجة لتسجيل الدخول إلى حسابكِ؟ يمكنكِ نسخ الرابط المباشر الآمن أدناه لمشاركته فوراً! 🔗✨
+              </p>
+
+              {shipments.length > 0 ? (
+                <div className="space-y-3">
+                  <span className="text-xs font-bold text-gray-700 block">اختر الشحنة لمشاركة تتبعها المباشر:</span>
+                  {shipments.map((s, idx) => {
+                    const trackingUrl = `https://eramo.store/tracking?num=${s.trackingNumber}`;
+                    return (
+                      <div key={idx} className="bg-pink-50/40 p-3.5 rounded-2xl border border-pink-100/30 flex items-center justify-between text-xs">
+                        <div className="text-right">
+                          <p className="font-bold text-gray-800">طرد رقم: {s.trackingNumber}</p>
+                          <p className="text-[10px] text-gray-400 font-semibold mt-0.5">قادم من {s.origin}</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(trackingUrl);
+                            alert(`تم نسخ رابط التتبع العام للطرد ${s.trackingNumber} بنجاح! 🌸`);
+                          }}
+                          className="bg-pink-700 text-white text-[10px] font-black px-3.5 py-1.5 rounded-lg active:scale-95 transition-transform"
+                        >
+                          نسخ الرابط 📋
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-center py-6 text-xs text-gray-400 font-bold">لا توجد شحنات نشطة حالياً لإنشاء روابط تتبع لها 🌸</p>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setShowPublicTrackingModal(false)}
+              className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl text-xs active:scale-[0.98] transition-all"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+// 🎡 SPIN WHEEL MODULE
+interface SpinWheelProps {
+  onClose: () => void;
+  points: number;
+  onWin: (amount: number, type: 'points' | 'balance') => Promise<void>;
+}
+
+function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
+  const [spinning, setSpinning] = useState(false);
+  const [deg, setDeg] = useState(0);
+  const [winMessage, setWinMessage] = useState<string | null>(null);
+  const [hasSpunToday, setHasSpunToday] = useState(false);
+
+  const PRIZES = [
+    { label: '50 نقطة ولاء 🎁', amount: 50, type: 'points' as const },
+    { label: 'حظ أوفر 🌸', amount: 0, type: 'points' as const },
+    { label: '150 نقطة ولاء ✨', amount: 150, type: 'points' as const },
+    { label: '5,000 د.ع رصيد 💳', amount: 5000, type: 'balance' as const },
+    { label: '100 نقطة ولاء 💫', amount: 100, type: 'points' as const },
+    { label: 'ألف د.ع رصيد محفظة 💰', amount: 1000, type: 'balance' as const },
+  ];
+
+  const handleSpin = () => {
+    if (spinning || hasSpunToday) return;
+
+    setSpinning(true);
+    setWinMessage(null);
+
+    // Random prize selection
+    const prizeIndex = Math.floor(Math.random() * PRIZES.length);
+    const selectedPrize = PRIZES[prizeIndex];
+
+    // Compute rotation (minimum 5 full spins + slice degree)
+    const segmentAngle = 360 / PRIZES.length;
+    const finalDegree = 360 * 5 + (360 - (prizeIndex * segmentAngle + segmentAngle / 2));
+    setDeg(finalDegree);
+
+    setTimeout(async () => {
+      setSpinning(false);
+      setHasSpunToday(true);
+      
+      if (selectedPrize.amount > 0) {
+        setWinMessage(`مبروك جميلتي! 🎉 لقد ربحتِ ${selectedPrize.label} وتم إضافتها فوراً إلى حسابكِ بكل حب ودلال! 💕`);
+        await onWin(selectedPrize.amount, selectedPrize.type);
+      } else {
+        setWinMessage(`حظ أوفر في المرة القادمة يا جميلتي! 🌸 هدوشة تتمنى لكِ يوماً سعيداً ومليئاً بالجمال 💖`);
+      }
+    }, 5000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
+      <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-5 items-center">
+        
+        <div className="w-full flex justify-between items-center pb-3 border-b border-pink-50">
+          <h3 className="font-extrabold text-pink-700 text-base flex items-center gap-2">
+            <Compass className="w-5 h-5 text-rose-600 animate-spin-slow" /> عجلة حظ هدوشة وبطوط
+          </h3>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <p className="text-xs text-gray-500 font-bold text-center leading-relaxed">
+          دوري عجلة الجمال اليومية لربح جوائز رائعة من نقاط الولاء ورصيد محفظة إيرامو! 🎡💖
+        </p>
+
+        {/* 🎡 THE WHEEL */}
+        <div className="relative w-64 h-64 my-4 flex items-center justify-center">
+          {/* Outer pin indicator */}
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-6 h-8 bg-pink-700 border-2 border-white rounded-b-full shadow-md"></div>
+          
+          <div 
+            style={{ 
+              transform: `rotate(${deg}deg)`,
+              transition: spinning ? 'transform 5s cubic-bezier(0.15, 0.85, 0.35, 1)' : 'none',
+              backgroundImage: 'conic-gradient(#fff1f2 0% 16.6%, #fff 16.6% 33.3%, #fff1f2 33.3% 50%, #fff 50% 66.6%, #fff1f2 66.6% 83.3%, #fff 83.3% 100%)'
+            }}
+            className="w-full h-full rounded-full border-4 border-pink-700 shadow-xl relative overflow-hidden flex items-center justify-center"
+          >
+            {PRIZES.map((prize, index) => {
+              const angle = (360 / PRIZES.length) * index;
+              return (
+                <div 
+                  key={index}
+                  style={{ transform: `rotate(${angle}deg)` }}
+                  className="absolute top-0 right-0 left-0 bottom-0 origin-center flex items-start justify-center pt-8 pointer-events-none select-none"
+                >
+                  <span className="text-[9px] font-black text-pink-800 text-center tracking-tight whitespace-nowrap block" style={{ transform: 'rotate(90deg)' }}>
+                    {prize.label}
+                  </span>
+                </div>
+              );
+            })}
+            
+            {/* Center Hub Button */}
+            <div className="absolute w-12 h-12 bg-gradient-to-tr from-pink-700 to-rose-600 text-white rounded-full border-2 border-white shadow-md flex items-center justify-center z-10 font-black text-[10px]">
+              Eramo
+            </div>
+          </div>
+        </div>
+
+        {winMessage && (
+          <div className="w-full p-4 bg-pink-50 border border-pink-100 text-pink-800 rounded-2xl text-xs font-black leading-relaxed flex items-start gap-2 animate-fade-in text-right">
+            <span>✨</span>
+            <div>{winMessage}</div>
+          </div>
+        )}
+
+        <button 
+          onClick={handleSpin}
+          disabled={spinning || hasSpunToday}
+          className="w-full py-3.5 bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-black rounded-2xl text-xs active:scale-[0.98] transition-all cursor-pointer shadow-md shadow-pink-500/15"
+        >
+          {spinning ? 'جاري دوران العجلة بدلال...' : hasSpunToday ? 'لقد لعبتِ اليوم بالفعل! عودي غداً 🌸' : 'اضغطي لبدء الدوران الفاخر 🎡✨'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 🎫 SUPPORT TICKETS MODULE
+interface SupportTicketsProps {
+  onClose: () => void;
+  profile: any;
+  shipments: any[];
+}
+
+function SupportTicketsModal({ onClose, profile, shipments }: SupportTicketsProps) {
+  const [tickets, setTickets] = useState<any[]>([
+    { id: 'TKT-10492', subject: 'استفسار عن طرد شي إن', category: 'استفسار شحن', status: 'مفتوحة', date: '2026/06/25', details: 'جميلتي، الطرد لم تظهر فيه تحديثات منذ يومين في مستودع الكويت.' }
+  ]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [category, setCategory] = useState('استفسار شحن');
+  const [details, setDetails] = useState('');
+  const [trackingNum, setTrackingNum] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject.trim() || !details.trim()) return;
+
+    setSubmitting(true);
+    
+    // Simulate API delay, add ticket dynamically
+    setTimeout(() => {
+      const newTkt = {
+        id: `TKT-${Math.floor(10000 + Math.random() * 90000)}`,
+        subject,
+        category,
+        status: 'مفتوحة',
+        date: new Date().toLocaleDateString('zh-CN'),
+        details,
+        trackingNum
+      };
+
+      setTickets(prev => [newTkt, ...prev]);
+      setSubject('');
+      setDetails('');
+      setTrackingNum('');
+      setShowCreate(false);
+      setSubmitting(false);
+      alert('تم فتح تذكرة الدعم بنجاح! ستجيبكِ هدى السلطاني أو المساعدة هدوشة بأقرب وقت ممكن 🌸');
+    }, 1500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
+      <div className="bg-white w-full max-w-md h-[80vh] sm:h-[75vh] rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-4">
+        
+        <div className="flex justify-between items-center pb-3 border-b border-pink-50">
+          <h3 className="font-extrabold text-pink-700 text-base flex items-center gap-2">
+            <Ticket className="w-5 h-5" /> تذاكر الدعم والطلبات المباشرة
+          </h3>
+          <button 
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {showCreate ? (
+          <form onSubmit={handleSubmitTicket} className="space-y-4 overflow-y-auto flex-1 pr-1">
+            <h4 className="font-black text-xs text-pink-800">فتح تذكرة دعم جديدة:</h4>
+            
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-400 font-bold block">موضوع التذكرة</label>
+              <input 
+                type="text" 
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="مثال: تأخر في توصيل شحنة" 
+                required
+                className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs font-bold focus:outline-none focus:border-pink-500"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-400 font-bold block">الفئة</label>
+              <select 
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs font-bold focus:outline-none focus:border-pink-500"
+              >
+                <option value="استفسار شحن">استفسار شحن</option>
+                <option value="مشكلة دفع وفواتير">مشكلة دفع وفواتير</option>
+                <option value="طلب فرز وتغليف VIP">طلب فرز وتغليف VIP</option>
+                <option value="أخرى">أخرى</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-400 font-bold block">رقم التتبع المرتبط (اختياري)</label>
+              <select 
+                value={trackingNum}
+                onChange={(e) => setTrackingNum(e.target.value)}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs font-bold focus:outline-none focus:border-pink-500"
+              >
+                <option value="">لا يوجد طرد مرتبط</option>
+                {shipments.map((s, idx) => (
+                  <option key={idx} value={s.trackingNumber}>{s.trackingNumber} ({s.status})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] text-gray-400 font-bold block">تفاصيل الطلب</label>
+              <textarea 
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                placeholder="اكتبي استفساركِ هنا بالتفصيل جميلتي وسيقوم طاقم هدى السلطاني بالرد فوراً..."
+                required
+                rows={3}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-pink-100 rounded-xl text-xs font-bold focus:outline-none focus:border-pink-500"
+              ></textarea>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                type="submit"
+                disabled={submitting}
+                className="flex-1 py-3 bg-gradient-to-r from-pink-700 to-rose-600 text-white font-black text-xs rounded-xl active:scale-95 transition-transform"
+              >
+                {submitting ? 'جاري الإرسال...' : 'إرسال التذكرة 💌'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setShowCreate(false)}
+                className="px-5 py-3 bg-gray-100 text-gray-600 font-black text-xs rounded-xl"
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-xs font-black text-gray-700">تذاكركِ النشطة ({tickets.length})</span>
+              <button 
+                onClick={() => setShowCreate(true)}
+                className="text-[10px] bg-pink-100 text-pink-700 font-black px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+              >
+                + فتح تذكرة دعم
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3">
+              {tickets.map((t, idx) => (
+                <div key={idx} className="bg-pink-50/20 p-4 rounded-2xl border border-pink-100/30 text-xs text-right space-y-2 animate-fade-in">
+                  <div className="flex justify-between items-center">
+                    <span className="font-mono text-gray-400 font-bold">{t.id}</span>
+                    <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md text-[9px] font-black">{t.status}</span>
+                  </div>
+                  <div>
+                    <h5 className="font-extrabold text-gray-800">{t.subject}</h5>
+                    <p className="text-[10px] text-gray-400 font-bold mt-0.5">{t.category} ● {t.date}</p>
+                  </div>
+                  <p className="text-[11px] text-gray-500 leading-relaxed font-semibold bg-white p-2.5 rounded-xl border border-pink-50/50">
+                    {t.details}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <button 
+              onClick={onClose}
+              className="w-full py-3.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl text-xs active:scale-[0.98] transition-all cursor-pointer mt-4"
+            >
+              إغلاق
+            </button>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

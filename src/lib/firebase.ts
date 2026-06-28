@@ -1,7 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import {
-  getFirestore,
+  initializeFirestore,
   doc,
   getDoc,
   getDocFromServer,
@@ -13,12 +13,44 @@ import {
   getDocs,
   onSnapshot
 } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { UserProfile, Shipment, Invoice, NotificationDetail } from '../types';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth();
+
+export let storage: any = null;
+try {
+  if (firebaseConfig.storageBucket) {
+    storage = getStorage(app);
+  }
+} catch (e) {
+  console.warn("Firebase Storage failed to initialize:", e);
+}
+
+export async function uploadFileToStorage(file: File, path: string): Promise<string> {
+  if (storage) {
+    try {
+      const storageRef = ref(storage, path);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(snapshot.ref);
+      return downloadUrl;
+    } catch (e) {
+      console.warn("Firebase Storage upload failed, falling back to local base64:", e);
+    }
+  }
+  // Robust Fallback: Convert to Data URL (base64) so it updates instantly and saves beautifully to Firestore!
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -118,6 +150,47 @@ export async function runMigrations(uid: string) {
 // Seed helper to populate empty collections with beautiful interactive data
 export async function seedInitialDataIfEmpty(uid: string) {
   try {
+    // Seed Huda_001 if not exists
+    const hudaDocRef = doc(db, 'users', 'Huda_001');
+    const hudaSnap = await getDoc(hudaDocRef);
+    if (!hudaSnap.exists()) {
+      await setDoc(hudaDocRef, {
+        uid: 'Huda_001',
+        customerId: 'Huda_001',
+        phone: '07801234567',
+        password: '123456',
+        name: 'هدى',
+        city: 'بابل',
+        role: 'customer',
+        membership: 'gold',
+        points: 1250,
+        walletBalance: 250000,
+        savedCardNumber: '5412 7500 1234 5678',
+        savedCardHolder: 'AMNA AL-IRAQ',
+        savedCardExpiry: '12/28',
+        avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'
+      });
+    }
+
+    // Seed Admin_001 if not exists
+    const adminDocRef = doc(db, 'users', 'Admin_001');
+    const adminSnap = await getDoc(adminDocRef);
+    if (!adminSnap.exists()) {
+      await setDoc(adminDocRef, {
+        uid: 'Admin_001',
+        customerId: 'Admin_001',
+        phone: '07807777777',
+        password: 'admin123',
+        name: 'المديرة هدوشة',
+        city: 'بغداد',
+        role: 'admin',
+        membership: 'premium',
+        points: 99999,
+        walletBalance: 10000000,
+        avatar: 'https://lh3.googleusercontent.com/aida/AP1WRLsRDP-u1RVbBjPEYf7rJ-NdzHWJakwLt7gnAZNMGLmJKPkRp5rpXeC8sb5pwEylTN2ng-Ej4yLxT26yVa7z8G4fx0CEaYjweNfrJHiCoOunzf32_M1-IHBfo1X1eJC73JVMP7Xm6keYR3qlhCReRzr35xI83PDs_ic9AinBS3apKtGSMte4_f4rzjZ-Cl9ZbJhrmILvORTYacUoZPZAjRoOoTRQKRQaadOcYttwFAAPdgux4o4_N5p9flU'
+      });
+    }
+
     const userDocRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userDocRef);
 
@@ -222,4 +295,97 @@ export async function seedInitialDataIfEmpty(uid: string) {
   } catch (error) {
     console.warn("Seeding initial data skipped or restricted (using highly-resilient offline local storage fallback):", error);
   }
+}
+
+export interface DiagnosticResult {
+  step1Auth: { status: 'pending' | 'success' | 'failed'; message: string; uid?: string; errorCode?: string };
+  step2Create: { status: 'pending' | 'success' | 'failed'; message: string; docId?: string; errorCode?: string };
+  step3Read: { status: 'pending' | 'success' | 'failed'; message: string; data?: any; errorCode?: string };
+  overallSuccess: boolean;
+  timestamp: number;
+}
+
+export async function runFirestoreDiagnosticTest(): Promise<DiagnosticResult> {
+  const result: DiagnosticResult = {
+    step1Auth: { status: 'pending', message: 'جاري تسجيل الدخول المجهول...' },
+    step2Create: { status: 'pending', message: 'انتظار اكتمال تسجيل الدخول...' },
+    step3Read: { status: 'pending', message: 'انتظار إنشاء المستند...' },
+    overallSuccess: false,
+    timestamp: Date.now()
+  };
+
+  try {
+    // 1. Authenticate anonymously
+    console.log("Diagnostic: Initiating anonymous sign in...");
+    const credential = await signInAnonymously(auth);
+    const uid = credential.user.uid;
+    result.step1Auth = {
+      status: 'success',
+      message: 'تم تسجيل الدخول بنجاح كمستخدم مجهول.',
+      uid
+    };
+
+    // 2. Create a document in collection "users"
+    console.log("Diagnostic: Creating test document...");
+    const testDocRef = doc(collection(db, 'users'));
+    const testDocId = testDocRef.id;
+    const testData = {
+      name: "اختبار",
+      createdAt: Date.now()
+    };
+    
+    await setDoc(testDocRef, testData);
+    result.step2Create = {
+      status: 'success',
+      message: `تم إنشاء مستند الاختبار بنجاح في مجموعة "users" بمعرّف: ${testDocId}`,
+      docId: testDocId
+    };
+
+    // 3. Read the document back
+    console.log("Diagnostic: Reading test document back...");
+    const readSnap = await getDoc(testDocRef);
+    if (readSnap.exists()) {
+      result.step3Read = {
+        status: 'success',
+        message: 'تم قراءة المستند بنجاح ومطابقة البيانات.',
+        data: readSnap.data()
+      };
+      result.overallSuccess = true;
+    } else {
+      result.step3Read = {
+        status: 'failed',
+        message: 'فشلت قراءة المستند: المستند غير موجود بعد الكتابة.',
+        errorCode: 'not-found'
+      };
+    }
+
+  } catch (error: any) {
+    console.error("Diagnostic failed:", error);
+    const errorCode = error?.code || error?.message || 'unknown';
+    
+    if (result.step1Auth.status === 'pending') {
+      result.step1Auth = {
+        status: 'failed',
+        message: `فشل تسجيل الدخول: ${error?.message || error}`,
+        errorCode
+      };
+      result.step2Create = { status: 'failed', message: 'تم الإلغاء بسبب فشل تسجيل الدخول.', errorCode };
+      result.step3Read = { status: 'failed', message: 'تم الإلغاء بسبب فشل تسجيل الدخول.', errorCode };
+    } else if (result.step2Create.status === 'pending') {
+      result.step2Create = {
+        status: 'failed',
+        message: `فشل إنشاء المستند: ${error?.message || error}`,
+        errorCode
+      };
+      result.step3Read = { status: 'failed', message: 'تم الإلغاء بسبب فشل إنشاء المستند.', errorCode };
+    } else {
+      result.step3Read = {
+        status: 'failed',
+        message: `فشل قراءة المستند: ${error?.message || error}`,
+        errorCode
+      };
+    }
+  }
+
+  return result;
 }

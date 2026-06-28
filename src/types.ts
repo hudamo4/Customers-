@@ -61,7 +61,7 @@ export interface NotificationDetail {
   id?: string;
   userId: string;
   notificationId: string;
-  type: 'shipment' | 'offer' | 'invoice';
+  type: 'shipment' | 'invoice' | 'loyalty' | 'promotion' | 'announcement' | 'support' | 'offer';
   title: string;
   content: string;
   time: string;
@@ -69,6 +69,10 @@ export interface NotificationDetail {
   icon?: string;
   action?: string;
   read: boolean;
+  deliveryMethod?: 'in-app' | 'push' | 'both';
+  scheduledTime?: string;
+  repeatInterval?: 'none' | 'daily' | 'weekly' | 'monthly';
+  status?: 'sent' | 'scheduled' | 'expired';
 }
 
 export interface StoreCustomization {

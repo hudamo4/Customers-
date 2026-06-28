@@ -1,10 +1,35 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Download, CheckCircle, Clock, ShoppingBag, Eye, Search, Sparkles, Check, Truck, FileDown, CreditCard, Lock, ShieldCheck, X, Printer, Copy, Receipt, Star } from 'lucide-react';
+import { Download, CheckCircle, Clock, ShoppingBag, Eye, Search, Sparkles, Check, Truck, FileDown, CreditCard, Lock, ShieldCheck, X, Printer, Copy, Receipt, Star, Share2 } from 'lucide-react';
+import IramoWaxSeal from './IramoWaxSeal';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Invoice } from '../types';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { motion } from 'motion/react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    }
+  }
+};
 
 interface InvoiceRatingFormProps {
   invoiceId: string;
@@ -200,6 +225,82 @@ function replaceModernColors(str: string): string {
     result = replaceOklabInString(result);
   }
   return result;
+}
+
+function cleanClonedDocColors(clonedDoc: Document, clonedElement: HTMLElement) {
+  // 1. Replace oklch/oklab in all <style> tags
+  try {
+    const styles = clonedDoc.querySelectorAll('style');
+    styles.forEach((style) => {
+      if (style.textContent) {
+        style.textContent = replaceModernColors(style.textContent);
+      }
+    });
+  } catch (e) {
+    console.warn('Error replacing styles in <style> tags:', e);
+  }
+
+  // 2. Process stylesheets
+  try {
+    for (let i = 0; i < clonedDoc.styleSheets.length; i++) {
+      const sheet = clonedDoc.styleSheets[i];
+      try {
+        const rules = sheet.cssRules || sheet.rules;
+        if (!rules) continue;
+        for (let j = 0; j < rules.length; j++) {
+          const rule = rules[j] as CSSStyleRule;
+          if (rule.style && rule.style.cssText) {
+            if (rule.style.cssText.includes('oklch') || rule.style.cssText.includes('oklab')) {
+              rule.style.cssText = replaceModernColors(rule.style.cssText);
+            }
+          }
+        }
+      } catch (e) {
+        // Can fail due to cross-origin sheets, safe to ignore
+      }
+    }
+  } catch (e) {
+    console.warn('Error replacing colors in styleSheets:', e);
+  }
+
+  // 3. Process inline style attributes and computed styles for all elements
+  try {
+    const allElements = clonedElement.querySelectorAll('*');
+    const elements = [clonedElement, ...Array.from(allElements)];
+    
+    elements.forEach((el: any) => {
+      if (!el.style) return;
+      
+      // Clean inline style attribute directly first
+      const styleAttr = el.getAttribute('style');
+      if (styleAttr) {
+        el.setAttribute('style', replaceModernColors(styleAttr));
+      }
+
+      // Convert computed styles to safe inline styles so getComputedStyle reads safe values
+      try {
+        const computed = (clonedDoc.defaultView || window).getComputedStyle(el);
+        const colorProps = [
+          'color', 'backgroundColor', 'borderColor', 
+          'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 
+          'fill', 'stroke', 'backgroundImage', 'boxShadow', 'textShadow', 'outlineColor'
+        ];
+        
+        colorProps.forEach((prop) => {
+          const val = computed[prop as any];
+          if (typeof val === 'string' && (val.includes('oklch') || val.includes('oklab'))) {
+            // Override with standard rgb/rgba/hex
+            const cleanedVal = replaceModernColors(val);
+            el.style[prop] = cleanedVal;
+          }
+        });
+      } catch (e) {
+        // Safe to ignore
+      }
+    });
+  } catch (e) {
+    console.warn('Error converting elements style properties:', e);
+  }
 }
 
 const CornerLeaves = ({ className }: { className?: string }) => (
@@ -459,7 +560,10 @@ export default function InvoiceView() {
           scale: 2.5, // High resolution
           useCORS: true,
           allowTaint: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc, clonedElement) => {
+            cleanClonedDocColors(clonedDoc, clonedElement);
+          }
         });
         
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -524,7 +628,10 @@ export default function InvoiceView() {
           scale: 2.5, // High resolution
           useCORS: true,
           allowTaint: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc, clonedElement) => {
+            cleanClonedDocColors(clonedDoc, clonedElement);
+          }
         });
         
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -893,10 +1000,31 @@ export default function InvoiceView() {
           </section>
 
           {/* Footer */}
-          <footer className="text-center pt-2 pb-1 relative z-10">
-            <p className="text-[#7D5558] text-[10px] font-bold">شكراً لثقتكم بـ</p>
-            <p className="text-lg font-bold tracking-[0.15em] text-[#7D5558] font-serif mt-0.5">IRAMO STORE</p>
-            <RibbonBow className="w-16 h-8 text-[#EAA8AC] mx-auto mt-1" />
+          <footer className="text-center pt-2 pb-1 relative z-10 space-y-3">
+            <div className="flex flex-col items-center justify-center border-t border-dashed border-[#FCDDDE] pt-3 mt-1 select-none">
+              <span className="text-[10px] text-[#7D5558]/80 font-black block mb-1">إدارة IRAMO:</span>
+              <div className="relative pt-2 pb-24 px-8 flex flex-col items-center">
+                <span className="font-signature-ar text-xl text-[#7D5558] tracking-wide block leading-none select-none relative z-10">
+                  المحللة هدى محمد
+                </span>
+                <span className="font-signature text-3xl text-pink-700/90 block leading-none mt-1 select-none font-medium relative z-10">
+                  AN.Huda Mohammed
+                </span>
+                <svg className="w-36 h-3 text-pink-600/30 absolute bottom-22 left-1/2 -translate-x-1/2" viewBox="0 0 100 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M2 5 C 20 8, 50 1, 98 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  <path d="M15 7 C 40 9, 70 5, 90 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                </svg>
+
+                {/* Premium 3D Wax Seal Stamp - Positioned below the name in the empty space */}
+                <IramoWaxSeal className="absolute bottom-2 left-1/2 -translate-x-1/2 rotate-[6deg] z-20 scale-[0.85]" size={90} />
+              </div>
+            </div>
+
+            <div className="pt-1">
+              <p className="text-[#7D5558] text-[9px] font-bold">شكراً لثقتكم بـ</p>
+              <p className="text-base font-bold tracking-[0.15em] text-[#7D5558] font-serif mt-0.5">IRAMO STORE</p>
+              <RibbonBow className="w-16 h-8 text-[#EAA8AC] mx-auto mt-1" />
+            </div>
           </footer>
         </div>
       </div>
@@ -907,6 +1035,37 @@ export default function InvoiceView() {
     navigator.clipboard.writeText('7144102758');
     setCopiedAccount(true);
     setTimeout(() => setCopiedAccount(false), 2000);
+  };
+
+  const [copiedShare, setCopiedShare] = useState<boolean>(false);
+
+  const handleShareInvoice = async (invoice: Invoice) => {
+    const text = `🧾 وصل فاتورة من هادوشة للشحن الدولي
+رقم الفاتورة: ${invoice.invoiceId}
+المتجر: ${invoice.store}
+المبلغ الإجمالي: ${invoice.amount}
+الحالة: ${invoice.status === 'Paid' ? 'تم التسديد بنجاح ✅' : 'قيد الانتظار ⏳'}
+تاريخ الفاتورة: ${invoice.date}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `فاتورة حدوشة ${invoice.invoiceId}`,
+          text: text,
+          url: window.location.href
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopiedShare(true);
+        setTimeout(() => setCopiedShare(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy text:', err);
+      }
+    }
   };
 
   const getMonthlyStats = () => {
@@ -1178,9 +1337,15 @@ export default function InvoiceView() {
       </div>
 
       {/* Invoices List */}
-      <div className="space-y-4">
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-4"
+      >
         {filteredInvoices.map((inv) => (
-          <div
+          <motion.div
+            variants={itemVariants}
             key={inv.id}
             className="bg-white/95 rounded-3xl p-5 border border-pink-100/50 relative overflow-hidden flex flex-col gap-4 shadow-sm group hover:border-pink-200 transition-all"
           >
@@ -1305,6 +1470,14 @@ export default function InvoiceView() {
                     </>
                   )}
                 </button>
+
+                <button
+                  onClick={() => handleShareInvoice(inv)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl text-[11px] font-bold bg-pink-50 hover:bg-pink-700 hover:text-white text-pink-700 border border-pink-100 transition-all shadow-sm active:scale-95 cursor-pointer"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>مشاركة</span>
+                </button>
               </div>
             </div>
 
@@ -1346,7 +1519,7 @@ export default function InvoiceView() {
               </div>
             )}
 
-          </div>
+          </motion.div>
         ))}
 
         {filteredInvoices.length === 0 && (
@@ -1355,7 +1528,7 @@ export default function InvoiceView() {
             <p className="text-xs">لم نجد أي فواتير تطابق بحثكِ.</p>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Mastercard Interactive Payment Modal */}
       {showPaymentModal && selectedInvoice && (
@@ -1556,6 +1729,17 @@ export default function InvoiceView() {
               >
                 <Copy className="w-3.5 h-3.5" />
                 <span>{copiedAccount ? 'تم نسخ الحساب! ✅' : 'نسخ حساب التحويل'}</span>
+              </button>
+              <button
+                onClick={() => handleShareInvoice(selectedInvoiceForVoucher)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+                  copiedShare 
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                    : 'bg-pink-50 text-pink-700 hover:bg-pink-100'
+                }`}
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>{copiedShare ? 'تم النسخ للمشاركة! ✅' : 'مشاركة الوصل 🔗'}</span>
               </button>
             </div>
             <button

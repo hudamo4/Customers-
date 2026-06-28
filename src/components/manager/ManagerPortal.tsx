@@ -9,7 +9,8 @@ import {
   ArrowRightLeft,
   ChevronRight,
   Bell,
-  Menu
+  Menu,
+  Palette
 } from 'lucide-react';
 
 // Import subcomponents
@@ -19,12 +20,14 @@ import ManagerInvoices from './ManagerInvoices';
 import ManagerCustomers from './ManagerCustomers';
 import ManagerProfits from './ManagerProfits';
 import ManagerSettings from './ManagerSettings';
+import ManagerVisualIdentity from './ManagerVisualIdentity';
+import ManagerNotifications from './ManagerNotifications';
 
 interface ManagerPortalProps {
   onSwitchToCustomerMode: () => void;
 }
 
-type ManagerTabType = 'dashboard' | 'shipments' | 'invoices' | 'customers' | 'profits' | 'settings';
+type ManagerTabType = 'dashboard' | 'shipments' | 'invoices' | 'customers' | 'profits' | 'settings' | 'visualIdentity' | 'notifications';
 
 export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalProps) {
   const [activeTab, setActiveTab] = useState<ManagerTabType>('dashboard');
@@ -47,6 +50,10 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
         return 'تقارير الأرباح والمبيعات';
       case 'settings':
         return 'إعدادات متجر إيرامو';
+      case 'visualIdentity':
+        return 'مركز الهوية البصرية والسمات';
+      case 'notifications':
+        return 'مركز إدارة التنبيهات الفاخرة';
       default:
         return 'بوابة الإدارة الموحدة';
     }
@@ -85,16 +92,20 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
         return <ManagerProfits />;
       case 'settings':
         return <ManagerSettings />;
+      case 'visualIdentity':
+        return <ManagerVisualIdentity />;
+      case 'notifications':
+        return <ManagerNotifications />;
       default:
         return <ManagerDashboard onAddShipmentClick={() => {}} onAddInvoiceClick={() => {}} onNavigateToTab={() => {}} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#fff8f6] text-gray-800 pb-24 select-none animate-fade-in" dir="rtl">
+    <div className="flex-1 flex flex-col relative overflow-hidden h-full bg-[#fff8f6] text-gray-800 select-none animate-fade-in" dir="rtl">
       
       {/* Header bar */}
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white/75 backdrop-blur-xl border-b border-pink-100/30 flex items-center justify-between px-4 z-50 shadow-sm max-w-lg mx-auto rounded-b-2xl">
+      <header className="absolute top-0 left-0 right-0 h-16 bg-white/75 backdrop-blur-xl border-b border-pink-100/30 flex items-center justify-between px-4 z-40 shadow-sm">
         <div className="flex items-center gap-2">
           <button 
             onClick={onSwitchToCustomerMode}
@@ -116,20 +127,20 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="pt-20 px-4 max-w-lg mx-auto pb-24">
+      {/* Main Container - independently scrollable */}
+      <main className="pt-16 flex-1 overflow-y-auto no-scrollbar pb-24 relative px-4">
         {renderActiveView()}
       </main>
 
-      {/* Manager Specific Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 h-20 bg-white/95 backdrop-blur-2xl border-t border-pink-100/30 shadow-lg rounded-t-[2rem] flex justify-around items-center px-4 z-50 max-w-lg mx-auto">
+      {/* Manager Specific Navigation - Sticky at the bottom */}
+      <nav className="absolute bottom-0 left-0 right-0 h-24 pb-4 bg-white/95 backdrop-blur-2xl border-t border-pink-100/30 shadow-lg rounded-t-[2rem] flex justify-around items-center px-1 z-40">
         <button
           onClick={() => setActiveTab('dashboard')}
           className={`flex flex-col items-center gap-1 transition-all duration-300 cursor-pointer ${
             activeTab === 'dashboard' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'dashboard' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'dashboard' ? 'bg-pink-100' : ''}`}>
             <LayoutDashboard className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الرئيسية</span>
@@ -141,7 +152,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'shipments' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'shipments' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'shipments' ? 'bg-pink-100' : ''}`}>
             <Truck className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الشحنات</span>
@@ -153,7 +164,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'invoices' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'invoices' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'invoices' ? 'bg-pink-100' : ''}`}>
             <Receipt className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الفواتير</span>
@@ -165,10 +176,34 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'customers' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'customers' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'customers' ? 'bg-pink-100' : ''}`}>
             <Users className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الزبائن</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('notifications')}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 cursor-pointer ${
+            activeTab === 'notifications' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
+          }`}
+        >
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'notifications' ? 'bg-pink-100' : ''}`}>
+            <Bell className="w-4.5 h-4.5" />
+          </div>
+          <span className="text-[9px] font-bold">الإشعارات</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('visualIdentity')}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 cursor-pointer ${
+            activeTab === 'visualIdentity' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
+          }`}
+        >
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'visualIdentity' ? 'bg-pink-100' : ''}`}>
+            <Palette className="w-4.5 h-4.5" />
+          </div>
+          <span className="text-[9px] font-bold">الهوية</span>
         </button>
 
         <button
@@ -177,7 +212,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
             activeTab === 'settings' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
           }`}
         >
-          <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'settings' ? 'bg-pink-100' : ''}`}>
+          <div className={`p-1 px-2 rounded-full transition-all ${activeTab === 'settings' ? 'bg-pink-100' : ''}`}>
             <Settings className="w-4.5 h-4.5" />
           </div>
           <span className="text-[9px] font-bold">الإعدادات</span>

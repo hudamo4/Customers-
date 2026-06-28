@@ -38,10 +38,28 @@ const IRAQ_CITY_COORDS: Record<string, [number, number]> = {
   'دهوك': [36.8617, 42.9961],
 };
 
+function getArabicOrigin(originStr: string): string {
+  const normalized = originStr.toLowerCase().trim();
+  if (normalized.includes('turkey') || normalized.includes('istanbul') || normalized.includes('تركيا') || normalized.includes('إسطنبول') || normalized.includes('اسطنبول')) {
+    return 'تركيا 🇹🇷';
+  }
+  if (normalized.includes('china') || normalized.includes('guangzhou') || normalized.includes('shenzhen') || normalized.includes('الصين') || normalized.includes('غوانزو') || normalized.includes('شينزين')) {
+    return 'الصين 🇨🇳';
+  }
+  if (normalized.includes('uae') || normalized.includes('dubai') || normalized.includes('امارات') || normalized.includes('الإمارات') || normalized.includes('دبي')) {
+    return 'الإمارات 🇦🇪';
+  }
+  if (normalized.includes('kuwait') || normalized.includes('الكويت')) {
+    return 'الكويت 🇰🇼';
+  }
+  return originStr;
+}
+
 export default function IramoLiveMap({ origin, status, destinationCity, trackingNumber }: IramoLiveMapProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const leafletInstance = useRef<any>(null);
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const arabicOrigin = getArabicOrigin(origin);
 
   // Load Leaflet CDN Assets dynamically
   useEffect(() => {
@@ -134,10 +152,10 @@ export default function IramoLiveMap({ origin, status, destinationCity, tracking
 
     // Add Markers
     const originMarker = L.marker(originCoord, { icon: originIcon }).addTo(map)
-      .bindPopup(`<div class="text-right font-black text-xs text-pink-900" dir="rtl">نقطة الانطلاق: ${origin} 🌐</div>`);
+      .bindPopup(`<div class="text-right font-black text-xs text-pink-900" dir="rtl">نقطة الانطلاق: ${arabicOrigin} 🌐</div>`);
 
     const transitMarker = L.marker(transitCoord, { icon: transitIcon }).addTo(map)
-      .bindPopup(`<div class="text-right font-black text-xs text-amber-900" dir="rtl">محطة الترانزيت الرئيسي: مطار بغداد الدولي ✈️</div>`);
+      .bindPopup(`<div class="text-right font-black text-xs text-amber-900" dir="rtl">محطة الترانزيت الرئيسية: مطار بغداد الدولي ✈️</div>`);
 
     const destMarker = L.marker(destCoord, { icon: destinationIcon }).addTo(map)
       .bindPopup(`<div class="text-right font-black text-xs text-rose-900" dir="rtl">وجهة التوصيل: ${destinationCity} 💖</div>`);
@@ -206,7 +224,7 @@ export default function IramoLiveMap({ origin, status, destinationCity, tracking
         <div className="text-right">
           <span className="text-[9px] font-black text-pink-700 block">تتبع جي بي إس (GPS) 🛰️</span>
           <span className="text-[10px] font-bold text-gray-700 leading-normal">
-            المسار التقريبي: {origin.split(' ')[0]} ➔ بغداد ➔ {destinationCity}
+            المسار التقريبي: {arabicOrigin} ➔ بغداد ➔ {destinationCity}
           </span>
         </div>
         <span className="text-[9px] bg-pink-100 text-pink-800 px-2 py-0.5 rounded-md font-black">

@@ -56,14 +56,18 @@
       "properties": {
         "userId": { "type": "string" },
         "notificationId": { "type": "string" },
-        "type": { "type": "string", "enum": ["shipment", "offer", "invoice"] },
+        "type": { "type": "string", "enum": ["shipment", "invoice", "loyalty", "promotion", "announcement", "support", "offer"] },
         "title": { "type": "string" },
         "content": { "type": "string" },
         "time": { "type": "string" },
         "image": { "type": "string" },
         "icon": { "type": "string" },
         "action": { "type": "string" },
-        "read": { "type": "boolean" }
+        "read": { "type": "boolean" },
+        "deliveryMethod": { "type": "string", "enum": ["in-app", "push", "both"] },
+        "scheduledTime": { "type": "string" },
+        "repeatInterval": { "type": "string", "enum": ["none", "daily", "weekly", "monthly"] },
+        "status": { "type": "string", "enum": ["sent", "scheduled", "expired"] }
       },
       "required": ["userId", "notificationId", "type", "title", "content", "time", "read"]
     }

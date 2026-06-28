@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User } from 'firebase/auth';
-import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { db, setupAnonymousUser, seedInitialDataIfEmpty } from '../lib/firebase';
+import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
+import { db, setupAnonymousUser, seedInitialDataIfEmpty, auth } from '../lib/firebase';
 import { UserProfile, Shipment, Invoice, NotificationDetail, AppCustomizations } from '../types';
 
 export type TabType = 'dashboard' | 'tracking' | 'invoices' | 'profile' | 'notifications';
@@ -42,6 +42,11 @@ interface AppContextType {
   rateInvoice: (invoiceId: string, rating: number, comment?: string) => Promise<void>;
   updateCustomizations: (cust: Partial<AppCustomizations>) => Promise<void>;
   updateAvatar: (avatar: string) => Promise<void>;
+  isLoggedIn: boolean;
+  showLoginModal: boolean;
+  setShowLoginModal: (show: boolean) => void;
+  login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -931,22 +936,123 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const isLoggedIn = user ? !user.isAnonymous : false;
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+
+  const login = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const usersRef = collection(db, 'users');
+      // Query by customerId (username)
+      const qId = query(usersRef, where('customerId', '==', identifier.trim()));
+      const snapId = await getDocs(qId);
+      let matchedDoc = snapId.docs[0];
+
+      if (!matchedDoc) {
+        // Query by phone
+        const qPhone = query(usersRef, where('phone', '==', identifier.trim()));
+        const snapPhone = await getDocs(qPhone);
+        matchedDoc = snapPhone.docs[0];
+      }
+
+      if (!matchedDoc) {
+        return { success: false, error: 'اسم المستخدم أو رقم الهاتف غير مسجل لدينا 🌸' };
+      }
+
+      const userData = matchedDoc.data();
+      if (userData.password !== password) {
+        return { success: false, error: 'كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى 💖' };
+      }
+
+      // Login to Firebase Auth using custom mapping
+      const email = `${userData.customerId.toLowerCase()}@iramo.com`;
+      let authUser;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        authUser = cred.user;
+      } catch (authErr: any) {
+        if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
+          // If the auth user doesn't exist or credential is mismatch, try creating user
+          try {
+            const cred = await createUserWithEmailAndPassword(auth, email, password);
+            authUser = cred.user;
+          } catch (createErr: any) {
+            // If already exists, fallback to login
+            if (createErr.code === 'auth/email-already-in-use') {
+              const cred = await signInWithEmailAndPassword(auth, email, password);
+              authUser = cred.user;
+            } else {
+              throw createErr;
+            }
+          }
+        } else {
+          throw authErr;
+        }
+      }
+
+      // If they logged in, write/copy user document under their auth UID if it doesn't exist
+      const userDocRef = doc(db, 'users', authUser.uid);
+      const userSnap = await getDoc(userDocRef);
+      if (!userSnap.exists()) {
+        await setDoc(userDocRef, {
+          ...userData,
+          uid: authUser.uid
+        });
+        // Seed default shipments/invoices/notifications for this new Auth UID!
+        await seedInitialDataIfEmpty(authUser.uid);
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      return { success: false, error: err.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول.' };
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setActiveTab('dashboard');
+      setAppMode('customer');
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
+  };
+
+  const handleSetActiveTab = (tab: TabType) => {
+    if (!isLoggedIn && tab !== 'dashboard') {
+      setShowLoginModal(true);
+      return;
+    }
+    setActiveTab(tab);
+  };
+
+  const handleSetAppMode = (mode: 'customer' | 'manager') => {
+    if (mode === 'manager') {
+      const currentRole = (isLoggedIn && profile) ? profile.role : null;
+      if (currentRole !== 'admin') {
+        setShowLoginModal(true);
+        return;
+      }
+    }
+    setAppMode(mode);
+  };
+
   return (
     <AppContext.Provider
       value={{
         user,
-        profile,
-        shipments,
-        invoices,
-        notifications,
+        profile: isLoggedIn ? profile : null,
+        shipments: isLoggedIn ? shipments : [],
+        invoices: isLoggedIn ? invoices : [],
+        notifications: isLoggedIn ? notifications : [],
         customizations,
         activeTab,
-        setActiveTab,
+        setActiveTab: handleSetActiveTab,
         selectedShipmentId,
         setSelectedShipmentId,
         loading,
         appMode,
-        setAppMode,
+        setAppMode: handleSetAppMode,
         updateProfile,
         markAllNotificationsAsRead,
         markNotificationAsRead,
@@ -961,6 +1067,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rateInvoice,
         updateCustomizations,
         updateAvatar,
+        isLoggedIn,
+        showLoginModal,
+        setShowLoginModal,
+        login,
+        logout,
       }}
     >
       {children}

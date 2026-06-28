@@ -36,6 +36,7 @@ export default function ManagerShipments() {
   // Status Change State
   const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
+  const [showStatusConfirm, setShowStatusConfirm] = useState<boolean>(false);
 
   // Delete Confirmation State
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
@@ -130,12 +131,17 @@ export default function ManagerShipments() {
     }
   };
 
-  const handleUpdateStatus = async (e: React.FormEvent) => {
+  const handleUpdateStatus = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingShipment || !newStatus || !editingShipment.id) return;
+    setShowStatusConfirm(true);
+  };
 
+  const handleConfirmUpdateStatus = async () => {
+    if (!editingShipment || !newStatus || !editingShipment.id) return;
     await updateShipmentStatus(editingShipment.id, newStatus);
     setEditingShipment(null);
+    setShowStatusConfirm(false);
   };
 
   // Filter shipments
@@ -412,6 +418,43 @@ export default function ManagerShipments() {
                 حفظ التحديث ونشره للعميل 📢
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Status Update Confirmation Modal */}
+      {showStatusConfirm && editingShipment && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-pink-100" dir="rtl">
+            <div className="w-14 h-14 bg-pink-50 text-pink-700 rounded-full flex items-center justify-center mx-auto border border-pink-100/50">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div>
+              <h4 className="font-black text-gray-800 text-sm">تأكيد نشر تحديث الحالة الجارية؟</h4>
+              <p className="text-[11px] text-gray-500 mt-2 leading-relaxed font-bold">
+                أنتِ على وشك تغيير حالة الشحنة رقم <span className="font-mono text-pink-700 font-black">{editingShipment.trackingNumber}</span> إلى:
+              </p>
+              <div className="mt-2.5 px-4 py-2 bg-pink-50/50 rounded-2xl border border-pink-100/50 text-xs font-black text-pink-800 inline-block">
+                {newStatus}
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 leading-relaxed font-bold">
+                سيظهر هذا التحديث فوراً في لوحة التحكم وتنبيهات خط السير الخاصة بالزبونة.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button 
+                onClick={handleConfirmUpdateStatus}
+                className="flex-1 bg-gradient-to-r from-pink-700 to-rose-600 text-white text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-md shadow-pink-500/10"
+              >
+                تأكيد ونشر التحديث 📢
+              </button>
+              <button 
+                onClick={() => setShowStatusConfirm(false)}
+                className="flex-1 bg-gray-100 text-gray-500 text-[11px] font-black py-3 rounded-2xl active:scale-95 transition-all cursor-pointer"
+              >
+                تراجع وتعديل ✕
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,30 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Copy, MapPin, Plane, GitMerge, Box, ShoppingBag, Share2, Compass, MessageCircle, Info, CheckCircle, Package, Calculator, Plus, Minus, Scale, Search, Trash2, AlertTriangle, Wifi, WifiOff, Database } from 'lucide-react';
 import IramoLiveMap from './IramoLiveMap';
+import { motion } from 'motion/react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15
+    }
+  }
+};
 
 export default function TrackingView() {
   const { shipments, selectedShipmentId, setSelectedShipmentId, deleteShipment, customizations, profile } = useApp();
@@ -264,9 +288,18 @@ export default function TrackingView() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 text-[10px] font-black shrink-0 self-end sm:self-center">
-          <Database className="w-3.5 h-3.5 text-pink-700" />
-          <span className="text-pink-800 bg-pink-50 px-2 py-0.5 rounded-md border border-pink-100">آمن ومحفوظ</span>
+        <div className="flex flex-col items-end gap-1 shrink-0 self-end sm:self-center">
+          <div className="flex items-center gap-1 text-[10px] font-black">
+            <Database className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+            <span className="text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100/60 font-extrabold">
+              تزامن Firestore نشط ⚡
+            </span>
+          </div>
+          {profile?.uid && (
+            <span className="text-[8px] font-mono text-gray-400 font-bold max-w-[120px] truncate">
+              ID: {profile.uid}
+            </span>
+          )}
         </div>
       </div>
 
@@ -285,12 +318,19 @@ export default function TrackingView() {
         </div>
 
         {filteredShipments.length > 0 ? (
-          <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 no-scrollbar" dir="rtl">
+          <motion.div 
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="flex gap-2.5 overflow-x-auto pb-2 pt-1 no-scrollbar" 
+            dir="rtl"
+          >
             {filteredShipments.map((s) => {
               const statusStyles = getStatusStyles(s.status);
               const isActive = activeShipment?.id === s.id;
               return (
-                <button
+                <motion.button
+                  variants={itemVariants}
                   key={s.id}
                   onClick={() => setSelectedShipmentId(s.id || null)}
                   className={`px-4 py-3 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer active:scale-95 ${
@@ -307,13 +347,13 @@ export default function TrackingView() {
                         ? 'bg-white/20 text-white' 
                         : `${statusStyles.bg} ${statusStyles.border} border text-[8px]`
                     }`}>
-                      {s.status}
+                    {s.status}
                     </span>
                   </div>
-                </button>
+                </motion.button>
               );
             })}
-          </div>
+          </motion.div>
         ) : (
           <p className="text-xs text-gray-400 font-bold text-center py-2">لا توجد نتائج تطابق بحثكِ.</p>
         )}
@@ -403,9 +443,18 @@ export default function TrackingView() {
               <div className="absolute right-[15px] top-4 bottom-4 w-[4px] bg-gradient-to-b from-pink-200 to-pink-100 rounded-full"></div>
 
               {/* Steps list */}
-              <div className="space-y-8">
+              <motion.div 
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="space-y-8"
+              >
                 {activeShipment.journey?.map((step, idx) => (
-                  <div key={idx} className="relative pr-10 flex gap-4">
+                  <motion.div 
+                    variants={itemVariants}
+                    key={idx} 
+                    className="relative pr-10 flex gap-4"
+                  >
                     {/* Step bubble icon - dynamic based on status */}
                     <div
                       className={`absolute right-0 top-0.5 w-8 h-8 rounded-full flex items-center justify-center z-10 shadow-md transition-all duration-500 ${
@@ -435,9 +484,9 @@ export default function TrackingView() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
             </div>
           </div>
 
@@ -689,6 +738,30 @@ export default function TrackingView() {
                   </span>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Shipment Gallery - Package Inspection Photos */}
+          <div className="bg-white/95 backdrop-blur-xl border border-pink-100 rounded-3xl p-6 shadow-sm space-y-4">
+            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest border-b border-pink-100/30 pb-3">
+              صور فحص الطرد بالمستودع 📸
+            </h4>
+            <p className="text-[10px] text-gray-400 font-bold leading-relaxed text-right">
+              نوفر لكِ صور حقيقية عالية الجودة لطردكِ عند وصوله لمستودعاتنا لضمان السلامة والفرز الأنيق!
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { url: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?q=80&w=400&auto=format&fit=crop", label: "فحص الطرد" },
+                { url: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=400&auto=format&fit=crop", label: "التغليف الأنيق" },
+                { url: "https://images.unsplash.com/photo-1607344645866-009c320c5ab8?q=80&w=400&auto=format&fit=crop", label: "ملصق الشحن" }
+              ].map((img, idx) => (
+                <div key={idx} className="relative group rounded-xl overflow-hidden aspect-square border border-pink-100 shadow-xs cursor-pointer">
+                  <img src={img.url} alt={img.label} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" referrerPolicy="no-referrer" />
+                  <div className="absolute inset-x-0 bottom-0 bg-black/60 text-[8px] text-white py-1 text-center font-black">
+                    {img.label}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 

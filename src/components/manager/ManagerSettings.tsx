@@ -23,11 +23,72 @@ import {
   HelpCircle,
   FileText,
   Bell,
-  AlertTriangle
+  AlertTriangle,
+  Upload
 } from 'lucide-react';
 
 export default function ManagerSettings() {
   const { customizations, updateCustomizations } = useApp();
+
+  // Reusable image file uploader component
+  const ImageUploaderWidget = ({ 
+    value, 
+    onChange, 
+    label 
+  }: { 
+    value: string; 
+    onChange: (val: string) => void; 
+    label: string;
+  }) => {
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          onChange(reader.result);
+        }
+        setIsUploading(false);
+      };
+      reader.onerror = () => {
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    };
+
+    return (
+      <div className="space-y-1.5 text-right">
+        <label className="block text-[10px] font-black text-gray-500">{label}</label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 bg-white border border-pink-100 focus:outline-none focus:border-pink-300 text-xs px-3 py-2.5 rounded-xl font-mono text-left font-semibold text-gray-700"
+            placeholder="رابط الصورة https://... أو قم برفع ملف"
+          />
+          <label className="bg-pink-50 hover:bg-pink-100 text-pink-700 hover:text-pink-800 border border-pink-100 px-3.5 py-2.5 rounded-xl text-[10.5px] font-black cursor-pointer transition-all active:scale-95 shrink-0 flex items-center gap-1.5">
+            <Upload className="w-3.5 h-3.5" />
+            <span>{isUploading ? 'جاري الرفع...' : 'رفع صورة 📁'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </label>
+        </div>
+        {value && value.startsWith('data:image/') && (
+          <p className="text-[9px] text-emerald-600 font-bold">✓ تم تحميل الصورة محلياً بنجاح (جاهزة للحفظ)</p>
+        )}
+      </div>
+    );
+  };
+
   const [activeSubTab, setActiveSubTab] = useState<'ui' | 'shipping_payment' | 'stores' | 'presets'>('ui');
 
   // Saving states
@@ -544,16 +605,11 @@ export default function ManagerSettings() {
                   {editingBannerId ? 'تعديل بنر' : 'إضافة بنر جديد للواجهة'}
                 </h4>
                 <div className="space-y-3">
-                  <div>
-                    <label className="block text-[9px] font-black text-gray-500 mb-1">رابط صورة البنر (URL) *</label>
-                    <input 
-                      type="text"
-                      value={bannerForm.imageUrl}
-                      onChange={(e) => setBannerForm({ ...bannerForm, imageUrl: e.target.value })}
-                      className="w-full bg-white border border-pink-100 focus:border-pink-300 text-xs px-4 py-2.5 rounded-xl font-mono text-left font-bold text-gray-700"
-                      placeholder="https://images.unsplash.com/..."
-                    />
-                  </div>
+                  <ImageUploaderWidget
+                    label="صورة البنر *"
+                    value={bannerForm.imageUrl}
+                    onChange={(val) => setBannerForm({ ...bannerForm, imageUrl: val })}
+                  />
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
@@ -631,15 +687,28 @@ export default function ManagerSettings() {
               </div>
 
               <div className="pt-2 border-t border-dashed border-pink-100/60 mt-3">
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة الترحيب بصفحة الفواتير (هدوشة) (URL)</label>
-                <input 
-                  type="text"
-                  value={invoiceHadooshaImageUrl}
-                  onChange={(e) => setInvoiceHadooshaImageUrl(e.target.value)}
-                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-3 rounded-xl font-mono text-left font-bold text-gray-700"
-                  placeholder="رابط الصورة بصفحة الفاتورة"
+                <ImageUploaderWidget
+                  label="صورة الغلاف/الهيدر الرئيسي للتطبيق (Hero Image)"
+                  value={heroImageUrl}
+                  onChange={setHeroImageUrl}
                 />
-                <span className="text-[9px] text-gray-400 mt-1 block">يمكنكِ تغيير الصورة الترحيبية للعميل في صفحة الفواتير.</span>
+                <span className="text-[9px] text-gray-400 mt-1 block">الصورة الرئيسية التي تظهر في ترويسة الشاشة الرئيسية للزبائن.</span>
+              </div>
+
+              {heroImageUrl && (
+                <div className="relative w-full h-24 rounded-2xl overflow-hidden border border-pink-100 mx-auto mt-2">
+                  <img src={heroImageUrl} alt="Hero Image Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <span className="absolute bottom-1 left-1/2 -translate-x-1/2 bg-black/60 text-white font-bold text-[7px] px-2 py-0.5 rounded-full whitespace-nowrap">معاينة الغلاف</span>
+                </div>
+              )}
+
+              <div className="pt-2 border-t border-dashed border-pink-100/60 mt-3">
+                <ImageUploaderWidget
+                  label="صورة الترحيب بصفحة الفواتير (هدوشة)"
+                  value={invoiceHadooshaImageUrl}
+                  onChange={setInvoiceHadooshaImageUrl}
+                />
+                <span className="text-[9px] text-gray-400 mt-1 block">يمكنكِ تغيير أو رفع الصورة الترحيبية للعميل في صفحة الفواتير.</span>
               </div>
 
               {invoiceHadooshaImageUrl && (
@@ -733,16 +802,11 @@ export default function ManagerSettings() {
             </h3>
 
             <div className="space-y-3.5">
-              <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة المساعدين (Mascot URL)</label>
-                <input 
-                  type="text"
-                  value={homeFooterMascotUrl}
-                  onChange={(e) => setHomeFooterMascotUrl(e.target.value)}
-                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-mono text-left"
-                  placeholder="رابط صورة Mascot..."
-                />
-              </div>
+              <ImageUploaderWidget
+                label="صورة المساعدين (Mascot)"
+                value={homeFooterMascotUrl}
+                onChange={setHomeFooterMascotUrl}
+              />
 
               {homeFooterMascotUrl && (
                 <div className="flex justify-center p-2 bg-gray-50 rounded-xl">
@@ -788,16 +852,11 @@ export default function ManagerSettings() {
               <div className="p-4 bg-gray-50 rounded-2xl space-y-3">
                 <h4 className="font-bold text-xs text-pink-800 border-b border-pink-100/50 pb-1.5">🤖 مساعد التتبع الذكي (بطوط)</h4>
                 
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة مساعد التتبع</label>
-                  <input 
-                    type="text"
-                    value={trackingBatootMascotUrl}
-                    onChange={(e) => setTrackingBatootMascotUrl(e.target.value)}
-                    className="w-full bg-white border-0 text-xs px-4 py-2 rounded-xl font-mono text-left"
-                    placeholder="رابط صورة المساعد..."
-                  />
-                </div>
+                <ImageUploaderWidget
+                  label="صورة مساعد التتبع (بطوط)"
+                  value={trackingBatootMascotUrl}
+                  onChange={setTrackingBatootMascotUrl}
+                />
 
                 <div>
                   <label className="block text-[10px] font-black text-gray-500 mb-1">مقولة / رسالة مساعد التتبع</label>
@@ -815,16 +874,11 @@ export default function ManagerSettings() {
               <div className="p-4 bg-gray-50 rounded-2xl space-y-3">
                 <h4 className="font-bold text-xs text-pink-800 border-b border-pink-100/50 pb-1.5">👩‍💼 مسؤول الدعم اللوجستي</h4>
                 
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة مسؤول الدعم</label>
-                  <input 
-                    type="text"
-                    value={trackingSupportAgentUrl}
-                    onChange={(e) => setTrackingSupportAgentUrl(e.target.value)}
-                    className="w-full bg-white border-0 text-xs px-4 py-2 rounded-xl font-mono text-left"
-                    placeholder="رابط صورة مسؤول الدعم..."
-                  />
-                </div>
+                <ImageUploaderWidget
+                  label="صورة مسؤول الدعم اللوجستي"
+                  value={trackingSupportAgentUrl}
+                  onChange={setTrackingSupportAgentUrl}
+                />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -882,16 +936,11 @@ export default function ManagerSettings() {
             </h3>
 
             <div className="space-y-3.5">
-              <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة/بنر ترحيب التنبيهات (URL)</label>
-                <input 
-                  type="text"
-                  value={notificationsBannerUrl}
-                  onChange={(e) => setNotificationsBannerUrl(e.target.value)}
-                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-mono text-left"
-                  placeholder="رابط البنر..."
-                />
-              </div>
+              <ImageUploaderWidget
+                label="صورة/بنر ترحيب التنبيهات"
+                value={notificationsBannerUrl}
+                onChange={setNotificationsBannerUrl}
+              />
 
               {notificationsBannerUrl && (
                 <div className="relative w-full h-20 rounded-xl overflow-hidden border border-pink-100">
@@ -1252,13 +1301,10 @@ export default function ManagerSettings() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة أو شعار المتجر (اختياري)</label>
-                    <input 
-                      type="text"
+                    <ImageUploaderWidget
+                      label="صورة أو شعار المتجر (اختياري)"
                       value={storeForm.image}
-                      onChange={(e) => setStoreForm({ ...storeForm, image: e.target.value })}
-                      className="w-full bg-white border border-pink-100 focus:outline-none text-xs px-3 py-2 rounded-xl font-mono text-left"
-                      placeholder="https://..."
+                      onChange={(val) => setStoreForm({ ...storeForm, image: val })}
                     />
                   </div>
                 </div>
@@ -1405,13 +1451,10 @@ export default function ManagerSettings() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-gray-500 mb-1">رابط صورة المنتج (URL)</label>
-                    <input 
-                      type="text"
+                    <ImageUploaderWidget
+                      label="صورة المنتج"
                       value={presetForm.image}
-                      onChange={(e) => setPresetForm({ ...presetForm, image: e.target.value })}
-                      className="w-full bg-white border border-pink-100 focus:outline-none text-xs px-3 py-2 rounded-xl font-mono text-left"
-                      placeholder="https://..."
+                      onChange={(val) => setPresetForm({ ...presetForm, image: val })}
                     />
                   </div>
                 </div>

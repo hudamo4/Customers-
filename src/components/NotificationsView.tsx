@@ -1,27 +1,54 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Bell, Truck, Receipt, Gift, Sparkles, CheckSquare, Compass, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Bell, Truck, Receipt, Gift, Sparkles, CheckSquare, Trash2, Search } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 
 export default function NotificationsView() {
-  const { notifications, markAllNotificationsAsRead, markNotificationAsRead, setActiveTab, shipments, updateShipmentStatus, addNotification, customizations } = useApp();
+  const { 
+    notifications, 
+    markAllNotificationsAsRead, 
+    markNotificationAsRead, 
+    setActiveTab, 
+    shipments, 
+    updateShipmentStatus, 
+    addNotification, 
+    customizations 
+  } = useApp();
+  
   const [activeFilter, setActiveFilter] = useState<'all' | 'shipment' | 'invoice' | 'offer'>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [alertToast, setAlertToast] = useState({ show: false, title: '', message: '' });
 
   const filteredNotifications = notifications.filter((notif) => {
-    if (activeFilter === 'all') return true;
-    return notif.type === activeFilter;
+    // Apply filter tab
+    let matchesFilter = true;
+    if (activeFilter === 'offer') {
+      matchesFilter = ['offer', 'loyalty', 'promotion', 'announcement', 'support'].includes(notif.type);
+    } else if (activeFilter !== 'all') {
+      matchesFilter = notif.type === activeFilter;
+    }
+
+    // Apply search query
+    const matchesSearch = 
+      notif.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      notif.content.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return matchesFilter && matchesSearch;
   });
 
   const getIcon = (type: string) => {
     switch (type) {
       case 'shipment':
-        return <Truck className="w-6 h-6 text-pink-700" />;
+        return <Truck className="w-5 h-5 text-pink-700" />;
       case 'invoice':
-        return <Receipt className="w-6 h-6 text-pink-700" />;
-      case 'offer':
-        return <Gift className="w-6 h-6 text-pink-700" />;
+        return <Receipt className="w-5 h-5 text-pink-700" />;
+      case 'loyalty':
+        return <Gift className="w-5 h-5 text-pink-700" />;
+      case 'promotion':
+        return <Sparkles className="w-5 h-5 text-pink-700" />;
       default:
-        return <Bell className="w-6 h-6 text-pink-700" />;
+        return <Bell className="w-5 h-5 text-pink-700" />;
     }
   };
 
@@ -31,55 +58,71 @@ export default function NotificationsView() {
     }
   };
 
+  // Play micro alert sound for simulation
+  const playSound = () => {
+    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/1435/1435-120.wav");
+    audio.volume = 0.15;
+    audio.play().catch(() => {});
+  };
+
   return (
-    <div className="space-y-6 pb-12 animate-fade-in" id="notifications-view">
+    <div className="space-y-5 pb-12 animate-fade-in" id="notifications-view" dir="rtl">
+      
       {/* Real Full-Width Cover Banner */}
       <div className="relative w-full aspect-[16/7] rounded-3xl overflow-hidden shadow-sm group">
         <img
           alt="Notifications Banner"
           className="w-full h-full object-cover"
-          src={customizations?.notificationsBannerUrl || "https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs"}
+          src={customizations?.notificationsBannerUrl || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?q=80&w=1200&auto=format&fit=crop"}
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent p-5 flex flex-col justify-end text-right" dir="rtl">
-          <p className="text-pink-300 font-bold text-[10px] uppercase tracking-wider mb-1">IRAMO Notifications</p>
-          <h2 className="text-sm md:text-base font-extrabold text-white leading-snug max-w-[280px]">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-5 flex flex-col justify-end text-right">
+          <p className="text-pink-300 font-black text-[9px] uppercase tracking-widest mb-0.5">IRAMO NOTIFICATIONS</p>
+          <h2 className="text-xs md:text-sm font-extrabold text-white leading-relaxed max-w-[280px]">
             {customizations?.notificationsWelcomeText || "مركز التنبيهات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨"}
           </h2>
         </div>
       </div>
 
-      {/* Toast Push Notification Simulation Alert */}
-      {alertToast.show && (
-        <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm bg-pink-900 border border-pink-700/50 text-white rounded-3xl p-5 shadow-2xl z-[99999] animate-slide-up flex items-start gap-4 text-right" dir="rtl">
-          <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 text-pink-300">
-            <Bell className="w-5 h-5 animate-bounce" />
-          </div>
-          <div className="flex-1 space-y-1">
-            <h4 className="font-black text-xs text-pink-100">{alertToast.title}</h4>
-            <p className="text-[11px] text-white/90 leading-relaxed font-bold">{alertToast.message}</p>
-          </div>
-        </div>
-      )}
+      {/* Slide-down alert toast */}
+      <AnimatePresence>
+        {alertToast.show && (
+          <motion.div 
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="fixed top-12 left-4 right-4 bg-pink-950/95 backdrop-blur-xl border border-pink-700/30 text-white rounded-3xl p-4 shadow-2xl z-[9999] flex items-start gap-3 text-right"
+          >
+            <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 text-pink-300">
+              <Bell className="w-5 h-5 animate-bounce" />
+            </div>
+            <div className="flex-1 space-y-0.5">
+              <h4 className="font-black text-xs text-pink-100">{alertToast.title}</h4>
+              <p className="text-[10px] text-white/90 leading-relaxed font-bold">{alertToast.message}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Shipment Status Simulator & Real-time Update Trigger */}
+      {/* Shipment Status Simulator */}
       {shipments.length > 0 && (
-        <div className="bg-gradient-to-br from-pink-50 to-pink-100/50 border border-pink-100 p-5 rounded-3xl shadow-sm space-y-3 text-right" dir="rtl">
+        <div className="bg-white/95 backdrop-blur-xl border border-pink-100 p-5 rounded-[2rem] shadow-xs space-y-3 text-right">
           <div className="flex items-center justify-between">
             <h3 className="font-extrabold text-xs text-pink-900 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-pink-600 animate-spin" />
-              محاكي التحديثات اللحظية للشحنات
+              <Sparkles className="w-4 h-4 text-pink-600" />
+              تتبع وتحديث الشحنات اللحظي 📲
             </h3>
-            <span className="text-[9px] font-black uppercase bg-pink-200 text-pink-800 px-2.5 py-0.5 rounded-lg">تحديث لحظي</span>
+            <span className="text-[9px] font-black uppercase bg-pink-100 text-pink-800 px-2.5 py-0.5 rounded-full">تحديث فوري</span>
           </div>
           
-          <p className="text-[10px] text-pink-800/80 leading-relaxed font-bold">
-            غيري حالة الشحنة النشطة لمحاكاة وصول تنبيه دفع (Push Notification) فوري وتحديث حالة التتبع في نفس اللحظة!
+          <p className="text-[10px] text-gray-500 leading-relaxed font-bold">
+            قومي بتحديث حالة شحنتكِ لتفعيل تنبيه دفع (Push Notification) مباشر بنظام إيرامو الذكي!
           </p>
 
           <div className="grid grid-cols-2 gap-2 pt-1">
             <button
               onClick={async () => {
+                triggerSuccessHaptic();
                 const firstShipment = shipments[0];
                 if (firstShipment && firstShipment.id) {
                   const newStatus = 'في الطريق';
@@ -93,21 +136,24 @@ export default function NotificationsView() {
                     read: false,
                     action: 'تتبع الشحنة'
                   });
+                  playSound();
                   setAlertToast({
                     show: true,
                     title: 'تنبيه فوري: شحنتكِ في الطريق!',
                     message: `الشحنة رقم ${firstShipment.trackingNumber} متجهة إليكِ الآن.`
                   });
-                  setTimeout(() => setAlertToast({ show: false, title: '', message: '' }), 5000);
+                  setTimeout(() => setAlertToast({ show: false, title: '', message: '' }), 6000);
                 }
               }}
-              className="bg-white hover:bg-pink-700 hover:text-white border-2 border-pink-200 text-pink-700 py-2.5 rounded-2xl text-[10px] font-black transition-all shadow-sm active:scale-95 cursor-pointer"
+              className="bg-pink-50 hover:bg-pink-100 border border-pink-100 text-pink-900 py-2.5 rounded-2xl text-[10px] font-black transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
             >
-              🚚 محاكاة: 'في الطريق'
+              <Truck className="w-3.5 h-3.5 text-pink-700" />
+              <span>شحنة 'في الطريق'</span>
             </button>
 
             <button
               onClick={async () => {
+                triggerSuccessHaptic();
                 const firstShipment = shipments[0];
                 if (firstShipment && firstShipment.id) {
                   const newStatus = 'تم الاستلام';
@@ -121,47 +167,67 @@ export default function NotificationsView() {
                     read: false,
                     action: 'تتبع الشحنة'
                   });
+                  playSound();
                   setAlertToast({
                     show: true,
                     title: 'تنبيه فوري: تم الاستلام!',
                     message: `تم تسليم شحنتكِ رقم ${firstShipment.trackingNumber} بنجاح.`
                   });
-                  setTimeout(() => setAlertToast({ show: false, title: '', message: '' }), 5000);
+                  setTimeout(() => setAlertToast({ show: false, title: '', message: '' }), 6000);
                 }
               }}
-              className="bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white py-2.5 rounded-2xl text-[10px] font-black transition-all shadow shadow-pink-500/10 active:scale-95 cursor-pointer"
+              className="bg-gradient-to-r from-pink-600 to-rose-500 text-white py-2.5 rounded-2xl text-[10px] font-black transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
             >
-              🎉 محاكاة: 'تم الاستلام'
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>شحنة 'تم الاستلام'</span>
             </button>
           </div>
         </div>
       )}
 
+      {/* Elegant Native Search Bar */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="البحث في العروض والإشعارات..."
+          className="w-full bg-white border border-pink-100/50 rounded-2xl py-3 pl-4 pr-11 text-xs text-right focus:outline-none focus:border-pink-400 focus:ring-1 focus:ring-pink-400 font-bold placeholder-gray-400"
+        />
+        <Search className="w-4.5 h-4.5 text-gray-400 absolute top-1/2 right-4 -translate-y-1/2" />
+      </div>
+
       {/* Filter Bar & Mark All as Read */}
       <div className="flex flex-col gap-3">
         <div className="flex justify-between items-center px-1">
-          <span className="text-xs font-bold text-gray-400">تصفية التنبيهات</span>
+          <span className="text-[11px] font-black text-gray-400">تصنيفات الإشعارات</span>
           <button
-            onClick={markAllNotificationsAsRead}
-            className="text-xs font-bold text-pink-700 bg-pink-50 hover:bg-pink-100 px-3.5 py-1.5 rounded-xl transition-all"
+            onClick={() => {
+              triggerSuccessHaptic();
+              markAllNotificationsAsRead();
+            }}
+            className="text-[10px] font-black text-pink-800 bg-pink-50 hover:bg-pink-100 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
           >
-            تحديد الكل كمقروء
+            تحديد الكل كمقروء ✓
           </button>
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
           {[
             { id: 'all', label: 'الكل' },
-            { id: 'shipment', label: 'الشحنات' },
-            { id: 'invoice', label: 'الفواتير' },
-            { id: 'offer', label: 'العروض' }
+            { id: 'shipment', label: 'الشحنات 📦' },
+            { id: 'invoice', label: 'الفواتير 🧾' },
+            { id: 'offer', label: 'العروض 💖' }
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveFilter(tab.id as any)}
-              className={`px-5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
+              onClick={() => {
+                triggerLightHaptic();
+                setActiveFilter(tab.id as any);
+              }}
+              className={`px-4.5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
                 activeFilter === tab.id
-                  ? 'bg-gradient-to-r from-pink-700 to-pink-500 text-white shadow-md shadow-pink-500/20'
+                  ? 'bg-gradient-to-r from-pink-600 to-rose-500 text-white shadow-md shadow-pink-500/15'
                   : 'bg-white border border-pink-50 text-gray-500'
               }`}
             >
@@ -171,71 +237,121 @@ export default function NotificationsView() {
         </div>
       </div>
 
-      {/* Notification List */}
-      <div className="space-y-4">
-        {filteredNotifications.map((notif) => (
-          <div
-            key={notif.id}
-            onClick={() => handleNotificationClick(notif)}
-            className={`bg-white/95 p-5 rounded-[2rem] border transition-all hover:border-pink-200 shadow-sm relative overflow-hidden cursor-pointer ${
-              !notif.read ? 'border-pink-300 ring-2 ring-pink-50/20' : 'border-pink-50/50'
-            }`}
-          >
-            {/* Unread indicator dot */}
-            {!notif.read && (
-              <span className="absolute top-5 left-5 w-2.5 h-2.5 bg-pink-700 rounded-full"></span>
-            )}
+      {/* Swipe Instructions Hint */}
+      <div className="flex items-center gap-1.5 justify-center text-[10px] text-pink-900 bg-pink-100/30 py-2 rounded-xl border border-pink-100/40 font-bold">
+        <span>👈 اسحبي البطاقة لليسار لتجربة اختصارات سريعة (سحب مقروء / حذف)</span>
+      </div>
 
-            <div className="flex gap-4">
-              {notif.image ? (
-                <div className="w-14 h-14 rounded-2xl overflow-hidden border border-pink-100 shadow-sm flex-shrink-0">
-                  <img
-                    src={notif.image}
-                    alt={notif.title}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              ) : (
-                <div className="w-14 h-14 rounded-2xl bg-pink-50/80 border border-pink-100/30 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  {getIcon(notif.type)}
-                </div>
-              )}
-
-              <div className="flex-1 min-w-0 text-right">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-[11px] font-extrabold text-pink-700 tracking-wider">
-                    {notif.title}
-                  </span>
-                  <span className="text-[10px] font-bold text-gray-400">
-                    {notif.time}
-                  </span>
-                </div>
-                <p className="text-xs text-gray-700 leading-relaxed font-semibold">
-                  {notif.content}
-                </p>
-                {notif.action && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // prevent clicking notification to mark as read here again
-                      if (notif.type === 'shipment') setActiveTab('tracking');
-                      if (notif.type === 'invoice') setActiveTab('invoices');
-                      if (notif.type === 'offer') setActiveTab('profile');
-                    }}
-                    className="mt-3 px-5 py-2 rounded-full border border-pink-200 text-pink-700 text-[10px] font-bold hover:bg-pink-700 hover:text-white transition-all bg-white/50"
-                  >
-                    {notif.action}
-                  </button>
-                )}
+      {/* Notification List with Swipe Interactions */}
+      <div className="space-y-3">
+        <AnimatePresence mode="popLayout">
+          {filteredNotifications.map((notif) => (
+            <div key={notif.id} className="relative overflow-hidden rounded-[2rem] bg-pink-100/30">
+              
+              {/* Swipe Action Overlay Background for swipe to left */}
+              <div className="absolute inset-y-0 right-0 left-0 bg-gradient-to-l from-rose-500 to-rose-600 flex items-center justify-end px-6 text-white font-black text-xs gap-2 select-none">
+                <span>تجاهل الإشعار</span>
+                <Trash2 className="w-5 h-5 text-white animate-pulse" />
               </div>
+
+              {/* Swipable Card Body using Framer Motion Dragging */}
+              <motion.div
+                drag="x"
+                dragDirectionLock
+                dragConstraints={{ left: -110, right: 0 }}
+                dragElastic={0.1}
+                onDragEnd={(event, info) => {
+                  // If swiped significantly to the left (e.g. past -80px)
+                  if (info.offset.x < -70) {
+                    // Trigger haptic for swipe action
+                    triggerMediumHaptic();
+                    // Fast action: mark read or simple toast
+                    if (!notif.read && notif.id) {
+                      markNotificationAsRead(notif.id);
+                    }
+                  }
+                }}
+                className={`bg-white p-4.5 rounded-[2rem] border transition-all relative z-10 cursor-grab active:cursor-grabbing flex gap-3 text-right ${
+                  !notif.read ? 'border-pink-200 shadow-sm' : 'border-pink-50/50'
+                }`}
+                onClick={() => {
+                  triggerLightHaptic();
+                  handleNotificationClick(notif);
+                }}
+              >
+                {/* Unread dot */}
+                {!notif.read && (
+                  <span className="absolute top-4.5 left-4.5 w-2 h-2 bg-pink-600 rounded-full animate-pulse"></span>
+                )}
+
+                {notif.image ? (
+                  <div className="w-13 h-13 rounded-2xl overflow-hidden border border-pink-100 shadow-sm shrink-0">
+                    <img
+                      src={notif.image}
+                      alt={notif.title}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-13 h-13 rounded-2xl bg-pink-50/80 border border-pink-100/30 flex items-center justify-center shrink-0 shadow-sm">
+                    {getIcon(notif.type)}
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-0.5">
+                    <h4 className="text-[11px] font-black text-pink-950 truncate max-w-[150px]">
+                      {notif.title}
+                    </h4>
+                    <span className="text-[9px] text-gray-400 font-bold shrink-0">
+                      {notif.time}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 leading-relaxed font-bold">
+                    {notif.content}
+                  </p>
+                  
+                  {/* Action row */}
+                  <div className="flex gap-1.5 mt-2.5 justify-end">
+                    {notif.action && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerMediumHaptic();
+                          if (notif.type === 'shipment') setActiveTab('tracking');
+                          else if (notif.type === 'invoice') setActiveTab('invoices');
+                          else setActiveTab('profile');
+                        }}
+                        className="px-4 py-1.5 rounded-full border border-pink-100 hover:bg-pink-50 text-pink-800 text-[9px] font-extrabold transition-all bg-white"
+                      >
+                        {notif.action} ✨
+                      </button>
+                    )}
+                    {!notif.read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          triggerSuccessHaptic();
+                          markNotificationAsRead(notif.id);
+                        }}
+                        className="px-3.5 py-1.5 rounded-full bg-pink-50 hover:bg-pink-100 text-pink-800 text-[9px] font-black transition-all flex items-center gap-1"
+                      >
+                        <CheckSquare className="w-3 h-3" />
+                        <span>قراءة</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
             </div>
-          </div>
-        ))}
+          ))}
+        </AnimatePresence>
 
         {filteredNotifications.length === 0 && (
-          <div className="text-center py-16 text-gray-400 space-y-2">
-            <span className="material-symbols-outlined text-4xl">notifications_off</span>
-            <p className="text-xs">لا توجد تنبيهات جديدة في هذا القسم.</p>
+          <div className="text-center py-16 bg-white/50 rounded-[2rem] border border-pink-100/40 text-gray-400 flex flex-col items-center justify-center gap-2">
+            <span className="material-symbols-outlined text-3xl text-pink-200">notifications_off</span>
+            <p className="text-[11px] font-black text-gray-500">لا توجد تنبيهات تطابق بحثكِ.</p>
           </div>
         )}
       </div>

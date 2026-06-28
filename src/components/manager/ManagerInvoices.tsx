@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Invoice } from '../../types';
+import IramoWaxSeal from '../IramoWaxSeal';
 import { 
   Plus, 
   Search, 
@@ -27,6 +28,20 @@ import {
   FileText,
   Copy
 } from 'lucide-react';
+
+const RibbonBow = ({ className }: { className?: string }) => (
+  <svg 
+    viewBox="0 0 100 60" 
+    fill="currentColor" 
+    className={className}
+  >
+    <path d="M 50 30 C 35 12, 18 15, 18 26 C 18 38, 35 34, 50 30" />
+    <path d="M 50 30 C 65 12, 82 15, 82 26 C 82 38, 65 34, 50 30" />
+    <path d="M 46 31 C 40 42, 30 52, 24 57 C 31 52, 41 43, 46 34" />
+    <path d="M 53 31 C 59 42, 69 52, 75 57 C 68 52, 58 43, 53 34" />
+    <ellipse cx="50" cy="30" rx="7" ry="6" />
+  </svg>
+);
 
 const PRESET_PRODUCTS = [
   {
@@ -1016,9 +1031,23 @@ export default function ManagerInvoices() {
                     <span className="text-[7px] text-pink-600/50 leading-none mt-1">2026 BAGHDAD</span>
                   </div>
 
-                  <div className="text-left">
-                    <span className="text-[10px] text-gray-400 block font-bold">المديرة هدى السلطاني:</span>
-                    <div className="font-serif italic text-xs text-pink-800 font-extrabold pt-2 pl-2">Huda AlSultani</div>
+                  <div className="text-left select-none relative">
+                    <span className="text-[10px] text-gray-400 block font-bold mb-0.5">إدارة IRAMO:</span>
+                    <div className="relative pt-1 pb-20 flex flex-col items-center px-4">
+                      <span className="font-signature-ar text-base text-[#7D5558] tracking-wide block leading-none select-none relative z-10">
+                        المحللة هدى محمد
+                      </span>
+                      <span className="font-signature text-2xl text-pink-700/90 block leading-none mt-1 select-none font-medium relative z-10">
+                        AN.Huda Mohammed
+                      </span>
+                      <svg className="w-28 h-2.5 text-pink-600/30 absolute bottom-18 left-1/2 -translate-x-1/2" viewBox="0 0 100 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 5 C 20 8, 50 1, 98 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                        <path d="M15 7 C 40 9, 70 5, 90 6" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                      </svg>
+
+                      {/* Premium 3D Wax Seal Stamp - Positioned below the name in the empty space */}
+                      <IramoWaxSeal className="absolute bottom-1 left-1/2 -translate-x-1/2 rotate-[6deg] z-20 scale-[0.8]" size={80} />
+                    </div>
                   </div>
                 </footer>
               </div>
