@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { motion } from 'motion/react';
 import IramoProductsList from './IramoProductsList';
 import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 import { 
@@ -17,6 +18,7 @@ import {
   ChevronLeft,
   Calculator, 
   MessageSquare, 
+  Instagram,
   Search, 
   Share2, 
   Minus, 
@@ -43,6 +45,7 @@ export default function DashboardView() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [rechargeModal, setRechargeModal] = useState<boolean>(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [copyCalcSuccess, setCopyCalcSuccess] = useState<boolean>(false);
 
   // Interactive Welcome Card States
   const [userMood, setUserMood] = useState<string | null>(null);
@@ -182,16 +185,30 @@ export default function DashboardView() {
   const deliveryCost = parseRate(selectedProvinceObj?.rate);
   const totalCost = (storePricePerKg * calcWeight) + deliveryCost;
 
-  // Contact / WhatsApp Helper
-  const getWhatsAppLink = (message: string) => {
-    const rawNum = customizations.socials?.whatsapp || '+964 780 123 4567';
-    const cleanNum = rawNum.replace(/\s+/g, '').replace('+', '');
-    return `https://wa.me/${cleanNum}?text=${encodeURIComponent(message)}`;
+  // Contact / Instagram Helper
+  const getInstagramLink = () => {
+    const ig = customizations.socials?.instagram || '@iramo.store';
+    const cleanIg = ig.replace('@', '').trim();
+    if (cleanIg.startsWith('http')) {
+      return cleanIg;
+    }
+    return `https://instagram.com/${cleanIg}`;
   };
 
   const handleCalcShare = () => {
     const msg = `مرحباً هدوشة وبطوط ✨\nأود الاستفسار عن تكلفة شحن طرد بوزن (${calcWeight.toFixed(1)} كغم) من متجر (${selectedStoreObj?.name || 'غير محدد'}) وتوصيله إلى محافظة (${calcProvince}).\nالوزن: ${calcWeight.toFixed(1)} كغم\nسعر شحن المتجر: ${selectedStoreObj?.rate || '0'} لكل كغم\nسعر توصيل المحافظة: ${selectedProvinceObj?.rate || '0'}\nالتكلفة الإجمالية المقدرة: ${totalCost.toLocaleString()} د.ع 💖`;
-    window.open(getWhatsAppLink(msg), '_blank');
+    
+    try {
+      navigator.clipboard.writeText(msg);
+    } catch (err) {
+      console.error(err);
+    }
+
+    setCopyCalcSuccess(true);
+    setTimeout(() => {
+      setCopyCalcSuccess(false);
+      window.open(getInstagramLink(), '_blank');
+    }, 1800);
   };
 
   // Filter Preset Products
@@ -889,14 +906,26 @@ export default function DashboardView() {
             </div>
           </div>
 
-          {/* Action button to WhatsApp */}
-          <button
-            onClick={handleCalcShare}
-            className="w-full bg-pink-700 hover:bg-pink-800 text-white font-black text-xs py-3 rounded-2xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
-          >
-            <MessageSquare className="w-4.5 h-4.5 text-white" />
-            <span>طلب الشحن أو الاستفسار المباشر 💬</span>
-          </button>
+          {/* Action button to Instagram */}
+          <div className="relative">
+            {copyCalcSuccess && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-x-0 -top-12 bg-emerald-600 text-white font-bold text-[10px] p-2.5 rounded-xl shadow-md text-center z-50 flex items-center justify-center gap-1.5"
+              >
+                <span>✨ تم نسخ تفاصيل الحسبة! جاري توجيهكِ لإنستغرام...</span>
+              </motion.div>
+            )}
+            <button
+              onClick={handleCalcShare}
+              className="w-full bg-pink-700 hover:bg-pink-800 text-white font-black text-xs py-3 rounded-2xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer"
+            >
+              <Instagram className="w-4.5 h-4.5 text-white" />
+              <span>الاستفسار والطلب عبر حساب إنستغرام 📸</span>
+            </button>
+          </div>
         </div>
       </section>
 

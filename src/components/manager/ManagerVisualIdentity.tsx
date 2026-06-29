@@ -57,13 +57,14 @@ export default function ManagerVisualIdentity() {
     { title: '', subtitle: '', bgImage: '' }
   ]);
   const [socialsForm, setSocialsForm] = useState({
-    whatsapp: '',
     instagram: '',
+    instagramLink: '',
     facebook: '',
     website: ''
   });
   const [showStores, setShowStores] = useState(true);
   const [showLoyalty, setShowLoyalty] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const [showBanners, setShowBanners] = useState(true);
   const [announcementText, setAnnouncementText] = useState('');
   const [showAnnouncement, setShowAnnouncement] = useState(true);
@@ -248,14 +249,15 @@ export default function ManagerVisualIdentity() {
     ]);
 
     setSocialsForm({
-      whatsapp: customizations.socials?.whatsapp || '+964 780 123 4567',
       instagram: customizations.socials?.instagram || '@iramo.store',
+      instagramLink: customizations.socials?.instagramLink || 'https://instagram.com/iramo.store',
       facebook: customizations.socials?.facebook || 'Iramo Store',
       website: customizations.socials?.website || 'www.iramostore.com'
     });
 
     setShowStores(customizations.showStores ?? true);
     setShowLoyalty(customizations.showLoyalty ?? true);
+    setShowOnboarding(customizations.showOnboarding ?? true);
     setShowBanners(customizations.showBanners ?? true);
     setAnnouncementText(customizations.announcementText || '');
     setShowAnnouncement(customizations.showAnnouncement ?? true);
@@ -523,6 +525,7 @@ export default function ManagerVisualIdentity() {
         socials: socialsForm,
         showStores,
         showLoyalty,
+        showOnboarding,
         showBanners,
         announcementText,
         showAnnouncement,
@@ -838,8 +841,8 @@ export default function ManagerVisualIdentity() {
         <div className="space-y-4 animate-slide-up" id="storefront-manager">
           
           {/* General Switches & Announcement Bar */}
-          <div className="bg-white border border-pink-100 rounded-2xl p-4 space-y-3 shadow-xs">
-            <div className="border-b border-pink-50 pb-2">
+          <div className="bg-white border border-pink-100 rounded-2xl p-3.5 space-y-2.5 shadow-xs">
+            <div className="border-b border-pink-50 pb-1.5">
               <h4 className="font-black text-xs text-gray-800 flex items-center gap-1.5">
                 <span className="p-1 bg-pink-50 rounded-lg text-pink-700">⚙️</span>
                 <span>تخصيص مكونات شاشة الرئيسية وشريط الإعلانات</span>
@@ -847,18 +850,18 @@ export default function ManagerVisualIdentity() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <label className="text-[11px] font-bold text-gray-600">محتوى شريط الإعلانات اللامع 📣</label>
                 <input 
                   type="text"
                   value={announcementText}
                   onChange={(e) => setAnnouncementText(e.target.value)}
-                  className="w-full p-2 text-xs bg-neutral-50 border border-neutral-100 rounded-lg"
+                  className="w-full p-2 text-xs bg-neutral-50 border border-neutral-100 rounded-lg focus:bg-white"
                   placeholder="🌟 أهلاً بكِ في إيرامو ستور! الشحن الأسرع والتوصيل الأرقى في العراق 💖"
                 />
               </div>
 
-              <div className="flex flex-col justify-end space-y-2">
+              <div className="flex flex-col justify-end space-y-1.5">
                 <label className="flex items-center gap-2 cursor-pointer text-[10.5px] font-bold text-gray-700 select-none">
                   <input 
                     type="checkbox"
@@ -887,6 +890,16 @@ export default function ManagerVisualIdentity() {
                     className="w-3.5 h-3.5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
                   />
                   <span>تفعيل وعرض بطاقة نقاط الولاء والهدايا للزبونات</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-[10.5px] font-bold text-gray-700 select-none bg-pink-50/50 p-1.5 rounded-lg border border-pink-100/50">
+                  <input 
+                    type="checkbox"
+                    checked={showOnboarding}
+                    onChange={(e) => setShowOnboarding(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
+                  />
+                  <span className="font-black text-pink-900">تفعيل شاشات الترحيب التلقائية (Onboarding) قبل المتجر ✨</span>
                 </label>
               </div>
             </div>
@@ -984,35 +997,35 @@ export default function ManagerVisualIdentity() {
           </div>
 
           {/* Social Links Manager */}
-          <div className="bg-white border border-pink-100 rounded-3xl p-5 space-y-4 shadow-sm">
-            <div className="border-b border-pink-50 pb-3">
-              <h4 className="font-black text-sm text-gray-800 flex items-center gap-2">
-                <span className="p-1.5 bg-pink-50 rounded-lg text-pink-700">📞</span>
-                <span>إدارة قنوات التواصل والتثبيت الفوري (Social Links)</span>
+          <div className="bg-white border border-pink-100 rounded-2xl p-4 space-y-3 shadow-xs">
+            <div className="border-b border-pink-50 pb-2">
+              <h4 className="font-black text-xs text-gray-800 flex items-center gap-1.5">
+                <span className="p-1 bg-pink-50 rounded-lg text-pink-700">📸</span>
+                <span>إدارة حساب ورابط الإنستغرام للمتابعة والطلب (Instagram Channel)</span>
               </h4>
-              <p className="text-[10px] text-gray-400 font-bold mt-1">تعديل رقم الواتساب المعتمد لتلقي وتأكيد حجوزات الطلبات، وتعديل حساب الإنستغرام</p>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">تحديد معرف الإنستغرام المعتمد لتلقي وتأكيد حجوزات زبونات المتجر، مع خيار وضع رابط مباشر للحساب</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600">رقم الواتساب للطلبات (WhatsApp) 💬</label>
-                <input 
-                  type="text"
-                  value={socialsForm.whatsapp}
-                  onChange={(e) => setSocialsForm({ ...socialsForm, whatsapp: e.target.value })}
-                  className="w-full p-2.5 text-xs bg-neutral-50 border border-neutral-100 rounded-xl"
-                  placeholder="+964 780 123 4567"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-600">معرف الإنستغرام (Instagram) 📸</label>
+                <label className="text-xs font-bold text-gray-600">معرف الإنستغرام (Instagram Username) 📸</label>
                 <input 
                   type="text"
                   value={socialsForm.instagram}
                   onChange={(e) => setSocialsForm({ ...socialsForm, instagram: e.target.value })}
-                  className="w-full p-2.5 text-xs bg-neutral-50 border border-neutral-100 rounded-xl"
+                  className="w-full p-2 text-xs bg-neutral-50 border border-neutral-100 rounded-lg focus:bg-white font-bold"
                   placeholder="@iramo.store"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-600">رابط حساب الإنستغرام المباشر (اختياري) 🔗</label>
+                <input 
+                  type="text"
+                  value={socialsForm.instagramLink || ''}
+                  onChange={(e) => setSocialsForm({ ...socialsForm, instagramLink: e.target.value })}
+                  className="w-full p-2 text-xs bg-neutral-50 border border-neutral-100 rounded-lg focus:bg-white font-bold"
+                  placeholder="https://instagram.com/iramo.store"
                 />
               </div>
             </div>

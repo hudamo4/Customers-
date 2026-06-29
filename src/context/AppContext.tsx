@@ -149,6 +149,7 @@ export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
   ],
   showStores: true,
   showLoyalty: true,
+  showOnboarding: true,
   showBanners: true,
   announcementText: '🌟 أهلاً بكِ في إيرامو ستور! الشحن الأسرع والتوصيل الأرقى في العراق 💖',
   showAnnouncement: true,
@@ -315,9 +316,9 @@ export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
     zainHolder: 'IRAMO STORE ADMIN'
   },
   socials: {
-    whatsapp: '+964 780 123 4567',
-    instagram: '@iramo_store',
-    facebook: 'fb.com/iramostore',
+    instagram: '@iramo.store',
+    instagramLink: 'https://instagram.com/iramo.store',
+    facebook: 'Iramo Store',
     website: 'www.iramostore.com'
   },
   homeFooterMascotUrl: 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw',

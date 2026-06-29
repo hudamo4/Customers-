@@ -133,8 +133,8 @@ export default function ManagerSettings() {
   });
 
   const [socials, setSocials] = useState({
-    whatsapp: customizations.socials?.whatsapp || '+964 780 123 4567',
     instagram: customizations.socials?.instagram || '@iramo_store',
+    instagramLink: customizations.socials?.instagramLink || 'https://instagram.com/iramo_store',
     facebook: customizations.socials?.facebook || 'fb.com/iramostore',
     website: customizations.socials?.website || 'www.iramostore.com'
   });
@@ -1180,42 +1180,41 @@ export default function ManagerSettings() {
           </div>
 
           {/* Social Links */}
-          <div className="bg-white border border-pink-100 rounded-3xl p-6 space-y-4 text-right">
+          <div className="bg-white border border-pink-100 rounded-3xl p-5 space-y-4 text-right">
             <h3 className="font-black text-sm text-gray-800 flex items-center gap-1.5">
               <LinkIcon className="w-4.5 h-4.5 text-pink-700" />
-              <span>معلومات التواصل والشبكات الاجتماعية</span>
+              <span>معلومات حساب ورابط الإنستغرام</span>
             </h3>
 
-            <div className="space-y-3.5">
+            <div className="grid grid-cols-2 gap-3 text-right">
               <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رقم الواتساب الرسمي (WhatsApp)</label>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">حساب الإنستغرام</label>
                 <input 
                   type="text"
-                  value={socials.whatsapp}
-                  onChange={(e) => setSocials({ ...socials, whatsapp: e.target.value })}
+                  value={socials.instagram}
+                  onChange={(e) => setSocials({ ...socials, instagram: e.target.value })}
                   className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">حساب الإنستغرام</label>
-                  <input 
-                    type="text"
-                    value={socials.instagram}
-                    onChange={(e) => setSocials({ ...socials, instagram: e.target.value })}
-                    className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black text-gray-500 mb-1">رابط الموقع الإلكتروني</label>
-                  <input 
-                    type="text"
-                    value={socials.website}
-                    onChange={(e) => setSocials({ ...socials, website: e.target.value })}
-                    className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
-                  />
-                </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط حساب الإنستغرام (اختياري)</label>
+                <input 
+                  type="text"
+                  value={socials.instagramLink || ''}
+                  onChange={(e) => setSocials({ ...socials, instagramLink: e.target.value })}
+                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
+                  placeholder="https://instagram.com/iramo.store"
+                />
               </div>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 mb-1">رابط الموقع الإلكتروني</label>
+              <input 
+                type="text"
+                value={socials.website}
+                onChange={(e) => setSocials({ ...socials, website: e.target.value })}
+                className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
+              />
             </div>
           </div>
 

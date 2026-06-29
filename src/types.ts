@@ -109,6 +109,7 @@ export interface AppCustomizations {
   banners?: BannerItem[];
   showStores: boolean;
   showLoyalty: boolean;
+  showOnboarding?: boolean;
   showBanners: boolean;
   announcementText: string;
   showAnnouncement: boolean;
@@ -126,8 +127,9 @@ export interface AppCustomizations {
     zainHolder: string;
   };
   socials: {
-    whatsapp: string;
+    whatsapp?: string;
     instagram: string;
+    instagramLink?: string;
     facebook: string;
     website: string;
   };

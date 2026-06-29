@@ -15,7 +15,7 @@ import { triggerLightHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '
 import { motion, AnimatePresence } from 'motion/react';
 
 function AppContent() {
-  const { activeTab, setActiveTab, notifications, profile, loading, appMode, setAppMode, logout, isLoggedIn, setShowLoginModal } = useApp();
+  const { activeTab, setActiveTab, notifications, profile, loading, appMode, setAppMode, logout, isLoggedIn, setShowLoginModal, customizations } = useApp();
   const [pushToast, setPushToast] = React.useState<{ id?: string; title: string; content: string; image?: string; action?: string; type?: string } | null>(null);
   const [initialLoaded, setInitialLoaded] = React.useState<boolean>(false);
   const [showIntro, setShowIntro] = React.useState<boolean>(() => !sessionStorage.getItem('iramo_intro_dismissed'));
@@ -249,7 +249,7 @@ function AppContent() {
 
       {/* Intro Splash Screen */}
       <AnimatePresence>
-        {showIntro && (
+        {showIntro && customizations?.showOnboarding !== false && (
           <IntroSplashScreen
             onDismiss={() => setShowIntro(false)}
             onLoginTrigger={() => setShowLoginModal(true)}

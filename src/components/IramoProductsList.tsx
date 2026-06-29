@@ -289,11 +289,16 @@ export default function IramoProductsList() {
     return result;
   }, [allProducts, searchQuery, selectedCategory, onlyShowWishlist, wishlist, sortBy]);
 
-  const getWhatsAppLink = (message: string) => {
-    const rawNum = customizations?.socials?.whatsapp || '+964 780 123 4567';
-    const cleanNum = rawNum.replace(/\s+/g, '').replace('+', '');
-    return `https://wa.me/${cleanNum}?text=${encodeURIComponent(message)}`;
+  const getInstagramLink = () => {
+    const ig = customizations?.socials?.instagram || '@iramo.store';
+    const cleanIg = ig.replace('@', '').trim();
+    if (cleanIg.startsWith('http')) {
+      return cleanIg;
+    }
+    return `https://instagram.com/${cleanIg}`;
   };
+
+  const [copySuccessMsg, setCopySuccessMsg] = useState(false);
 
   const handleOrderProduct = (prod: IramoProduct, size?: string, color?: string) => {
     triggerSuccessHaptic();
@@ -306,9 +311,20 @@ ${chosenSizeText}
 ${chosenColorText}
 💰 السعر النهائي: ${prod.price.toLocaleString()} د.ع
 🏬 المتجر الأصلي: ${prod.originalStore}
-الرجاء تأكيد توافر المنتج وتأكيد عملية الحجز الفوري 💖`;
+الرجاء تأكيد عملية الحجز الفوري 💖`;
 
-    window.open(getWhatsAppLink(orderMsg), '_blank');
+    try {
+      navigator.clipboard.writeText(orderMsg);
+    } catch (err) {
+      console.error(err);
+    }
+    
+    setCopySuccessMsg(true);
+    setTimeout(() => {
+      setCopySuccessMsg(false);
+      window.open(getInstagramLink(), '_blank');
+    }, 1800);
+
     setBookingSuccess(prod.id);
     setSelectedProduct(null);
     setTimeout(() => setBookingSuccess(null), 4000);
@@ -766,13 +782,23 @@ ${chosenColorText}
               </div>
 
               {/* STICKY CTA BOOKING BUTTON */}
-              <div className="px-5 pt-3 border-t border-pink-100/30 bg-[#fffcfb]">
+              <div className="px-5 py-3 border-t border-pink-100/30 bg-[#fffcfb] relative">
+                {copySuccessMsg && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-x-5 -top-12 bg-emerald-600 text-white font-bold text-[10px] p-2.5 rounded-xl shadow-md text-center z-50 flex items-center justify-center gap-1.5"
+                  >
+                    <span>✨ تم نسخ تفاصيل الطلب! جاري توجيهكِ لإنستغرام...</span>
+                  </motion.div>
+                )}
                 <button
                   onClick={() => handleOrderProduct(selectedProduct, selectedSize, selectedColor)}
                   className="w-full h-12 bg-black hover:bg-pink-700 hover:text-white text-white font-black text-xs rounded-full shadow-lg transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <ShoppingCart className="w-4.5 h-4.5" />
-                  <span>تأكيد الطلب الفوري عبر واتساب 🛍️</span>
+                  <span>تأكيد الطلب عبر حساب إنستغرام 📸</span>
                 </button>
               </div>
 

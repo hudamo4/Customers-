@@ -124,21 +124,7 @@ export default function IntroSplashScreen({ onDismiss, onLoginTrigger, isLoggedI
             </div>
           </div>
 
-          {/* Floating Monogram Wax Seal on First Slide */}
-          {currentSlide === 0 && (
-            <motion.div 
-              initial={{ scale: 0.8, opacity: 0, rotate: -15 }}
-              animate={{ scale: 1, opacity: 1, rotate: 0 }}
-              transition={{ delay: 0.25, type: "spring", stiffness: 100 }}
-              className="absolute top-36 -right-3 cursor-pointer transform hover:scale-105 transition-transform z-20"
-              onClick={() => {
-                triggerMediumHaptic();
-              }}
-              title="ختم الضمان والأصالة الرسمي لإيرامو ستور"
-            >
-              <IramoWaxSeal size={75} />
-            </motion.div>
-          )}
+
 
           {/* Icon Badge */}
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500/10 to-amber-500/5 flex items-center justify-center text-pink-700 shadow-inner">

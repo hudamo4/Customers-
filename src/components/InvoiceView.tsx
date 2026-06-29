@@ -1061,8 +1061,13 @@ export default function InvoiceView() {
           text: text,
           url: window.location.href
         });
-      } catch (err) {
-        console.error('Error sharing:', err);
+      } catch (err: any) {
+        const isCancellation = err && (err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes('cancel')));
+        if (isCancellation) {
+          console.log('User cancelled the share action.');
+        } else {
+          console.error('Error sharing:', err);
+        }
       }
     } else {
       try {
