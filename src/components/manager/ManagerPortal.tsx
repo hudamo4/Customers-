@@ -22,6 +22,8 @@ import ManagerProfits from './ManagerProfits';
 import ManagerSettings from './ManagerSettings';
 import ManagerVisualIdentity from './ManagerVisualIdentity';
 import ManagerNotifications from './ManagerNotifications';
+import { ConnectionStatusIndicator } from './ConnectionStatusIndicator';
+import { DEFAULT_AVATAR } from '../../utils/avatar';
 
 interface ManagerPortalProps {
   onSwitchToCustomerMode: () => void;
@@ -176,7 +178,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
                 <img 
                   alt="Mascot Hadoosha" 
                   className="w-full h-full object-contain" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE"
+                  src={DEFAULT_AVATAR}
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -230,6 +232,7 @@ export default function ManagerPortal({ onSwitchToCustomerMode }: ManagerPortalP
         </h1>
 
         <div className="flex items-center gap-2">
+          <ConnectionStatusIndicator />
           <span className="bg-pink-700 text-white font-black text-[9px] px-2.5 py-1 rounded-xl shadow-sm">
             المديرة 👑
           </span>

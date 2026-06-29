@@ -150,8 +150,8 @@ export default function ManagerShipments() {
                           ship.status.toLowerCase().includes(searchQuery.toLowerCase());
     
     if (selectedFilter === 'all') return matchesSearch;
-    if (selectedFilter === 'air') return matchesSearch && ship.service.includes('جوي');
-    if (selectedFilter === 'sea') return matchesSearch && ship.service.includes('بحري');
+    if (selectedFilter === 'air') return matchesSearch && (ship.service || '').includes('جوي');
+    if (selectedFilter === 'sea') return matchesSearch && (ship.service || '').includes('بحري');
     return matchesSearch;
   });
 
@@ -204,7 +204,7 @@ export default function ManagerShipments() {
                 : 'bg-gray-50 text-gray-400 hover:text-gray-600'
             }`}
           >
-            شحن جوي ({shipments.filter(s => s.service.includes('جوي')).length})
+            شحن جوي ({shipments.filter(s => (s.service || '').includes('جوي')).length})
           </button>
           <button 
             onClick={() => setSelectedFilter('sea')}
@@ -214,7 +214,7 @@ export default function ManagerShipments() {
                 : 'bg-gray-50 text-gray-400 hover:text-gray-600'
             }`}
           >
-            شحن بحري ({shipments.filter(s => s.service.includes('بحري')).length})
+            شحن بحري ({shipments.filter(s => (s.service || '').includes('بحري')).length})
           </button>
         </div>
       </div>

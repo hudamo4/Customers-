@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { DEFAULT_AVATAR } from '../utils/avatar';
 import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Phone, User as UserIcon, Lock, Sparkles, AlertCircle, Loader2, Key, Heart, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -487,7 +488,7 @@ export default function LoginModal() {
                   <img
                     alt="Manager Avatar"
                     className="w-full h-full object-cover"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE"
+                    src={DEFAULT_AVATAR}
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-pink-950/70 via-transparent to-transparent flex items-end justify-center pb-2">

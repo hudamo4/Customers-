@@ -25,6 +25,7 @@ import {
   Heart
 } from 'lucide-react';
 import { db } from '../../lib/firebase';
+import { DEFAULT_AVATAR } from '../../utils/avatar';
 import { collection, onSnapshot, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { NotificationDetail } from '../../types';
 
@@ -38,7 +39,7 @@ interface UserSelectOption {
 
 const FALLBACK_USERS: UserSelectOption[] = [
   { uid: 'cust_1', name: 'سارة علي', phone: '+964 770 123 4567', membership: 'عضوية ذهبية', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCkcpfVr8wniE5xCJAVxvkfRTdM-wo2pS6ZLjoAAR8vvxhwdnFL_Eqz5ppKytfnF7tKteyNH8pNfeNHZCgOHilx_vf0RxGy9L_S1vjDTGPdqubALD1vGc66vwxZXgSgt1yjkmDYXxxaHZmIDRUn57ZI0ZUxyl4KpI5swshHIq08yVvysKdGUmfiWi8xjMtaKkXbeXfdMkKmmX937lW0KpGk_r79A2ELYxV-Q1DrbFFkLoQag5QtCJVrQX91Bn4yhdHsry4A3P_FUng' },
-  { uid: 'cust_2', name: 'أمنة العراق', phone: '+964 780 445 1290', membership: 'عضوية ذهبية', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE' },
+  { uid: 'cust_2', name: 'أمنة العراق', phone: '+964 780 445 1290', membership: 'عضوية ذهبية', avatar: DEFAULT_AVATAR },
   { uid: 'cust_3', name: 'هدى السلطاني', phone: '+964 750 992 1124', membership: 'عضوية بلاتينية', avatar: 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw' },
   { uid: 'cust_4', name: 'زهراء محمد', phone: '+964 771 883 1102', membership: 'عضوية فضية', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCkcpfVr8wniE5xCJAVxvkfRTdM-wo2pS6ZLjoAAR8vvxhwdnFL_Eqz5ppKytfnF7tKteyNH8pNfeNHZCgOHilx_vf0RxGy9L_S1vjDTGPdqubALD1vGc66vwxZXgSgt1yjkmDYXxxaHZmIDRUn57ZI0ZUxyl4KpI5swshHIq08yVvysKdGUmfiWi8xjMtaKkXbeXfdMkKmmX937lW0KpGk_r79A2ELYxV-Q1DrbFFkLoQag5QtCJVrQX91Bn4yhdHsry4A3P_FUng' }
 ];
@@ -98,7 +99,7 @@ export default function ManagerNotifications() {
           name: data.name || 'زبونة مجهولة',
           phone: data.phone || '',
           membership: data.membership || 'عضوية فضية',
-          avatar: data.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'
+          avatar: data.avatar || DEFAULT_AVATAR
         });
       });
       

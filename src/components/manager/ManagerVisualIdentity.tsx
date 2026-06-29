@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { DEFAULT_AVATAR } from '../../utils/avatar';
 import { 
   Palette, 
   Image as ImageIcon, 
@@ -25,10 +26,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Layers,
-  Award
+  Award,
+  Plus,
+  ShoppingCart,
+  ChevronDown,
+  Star,
+  Edit
 } from 'lucide-react';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { db, uploadFileToStorage, handleFirestoreError, OperationType } from '../../lib/firebase';
+import { db, uploadFileToStorage, deleteFileFromUploadThing, handleFirestoreError, OperationType } from '../../lib/firebase';
 import { useApp } from '../../context/AppContext';
 
 // Local storage backup keys
@@ -36,12 +42,43 @@ const STORAGE_BACKUP_KEY = 'iramo_visual_identity_backup';
 
 export default function ManagerVisualIdentity() {
   const { customizations, updateCustomizations } = useApp();
-  const [activeSubTab, setActiveSubTab] = useState<'hero' | 'hadoosha' | 'batoot' | 'branding' | 'theme' | 'media' | 'avatars' | 'preview' | 'backup'>('hero');
+  const [activeSubTab, setActiveSubTab] = useState<'hero' | 'hadoosha' | 'batoot' | 'branding' | 'theme' | 'media' | 'avatars' | 'preview' | 'backup' | 'storefront'>('hero');
   const [activePreviewTab, setActivePreviewTab] = useState<'home' | 'tracking' | 'invoice' | 'notifications' | 'profile'>('home');
 
   // Loading states
   const [saving, setSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [showHeaderExplanation, setShowHeaderExplanation] = useState(false);
+
+  // SECTION STOREFRONT & INTRO STATE
+  const [onboardingSlidesForm, setOnboardingSlidesForm] = useState<any[]>([
+    { title: '', subtitle: '', bgImage: '' },
+    { title: '', subtitle: '', bgImage: '' },
+    { title: '', subtitle: '', bgImage: '' }
+  ]);
+  const [socialsForm, setSocialsForm] = useState({
+    whatsapp: '',
+    instagram: '',
+    facebook: '',
+    website: ''
+  });
+  const [showStores, setShowStores] = useState(true);
+  const [showLoyalty, setShowLoyalty] = useState(true);
+  const [showBanners, setShowBanners] = useState(true);
+  const [announcementText, setAnnouncementText] = useState('');
+  const [showAnnouncement, setShowAnnouncement] = useState(true);
+
+  // Products CRUD State
+  const [productForm, setProductForm] = useState({
+    id: '',
+    name: '',
+    price: 0,
+    category: 'حقائب 👜',
+    image: '',
+    originalStore: 'Shein'
+  });
+  const [isEditingProduct, setIsEditingProduct] = useState(false);
+  const [supportedStoresForm, setSupportedStoresForm] = useState<any[]>([]);
 
   // SECTION 1: HERO BANNER STATE
   const [heroForm, setHeroForm] = useState({
@@ -151,7 +188,7 @@ export default function ManagerVisualIdentity() {
     },
     activeCustomerFrame: 'Gold',
     activeCustomerBadge: '👑 زبونة VIP المميزة',
-    adminAvatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE',
+    adminAvatar: DEFAULT_AVATAR,
     adminCoverImage: 'https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?auto=format&fit=crop&q=80&w=800',
     adminProfileBg: 'bg-gradient-to-tr from-[#fff5f3] via-white to-[#fff9f6]',
     mascotAvatars: {
@@ -161,7 +198,7 @@ export default function ManagerVisualIdentity() {
     },
     customers: [
       { id: 'cust_1', name: 'سارة علي', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCkcpfVr8wniE5xCJAVxvkfRTdM-wo2pS6ZLjoAAR8vvxhwdnFL_Eqz5ppKytfnF7tKteyNH8pNfeNHZCgOHilx_vf0RxGy9L_S1vjDTGPdqubALD1vGc66vwxZXgSgt1yjkmDYXxxaHZmIDRUn57ZI0ZUxyl4KpI5swshHIq08yVvysKdGUmfiWi8xjMtaKkXbeXfdMkKmmX937lW0KpGk_r79A2ELYxV-Q1DrbFFkLoQag5QtCJVrQX91Bn4yhdHsry4A3P_FUng', phone: '+964 770 123 4567', badge: '👑 زبونة برونزية', frame: 'None' },
-      { id: 'cust_2', name: 'أمنة العراق', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE', phone: '+964 780 445 1290', badge: '👑 زبونة VIP المميزة', frame: 'VIP' },
+      { id: 'cust_2', name: 'أمنة العراق', avatar: DEFAULT_AVATAR, phone: '+964 780 445 1290', badge: '👑 زبونة VIP المميزة', frame: 'VIP' },
       { id: 'cust_3', name: 'هدى السلطاني', avatar: 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw', phone: '+964 750 992 1124', badge: '👑 الملكة الحارسة', frame: 'Royal' },
       { id: 'cust_4', name: 'زهراء محمد', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCkcpfVr8wniE5xCJAVxvkfRTdM-wo2pS6ZLjoAAR8vvxhwdnFL_Eqz5ppKytfnF7tKteyNH8pNfeNHZCgOHilx_vf0RxGy9L_S1vjDTGPdqubALD1vGc66vwxZXgSgt1yjkmDYXxxaHZmIDRUn57ZI0ZUxyl4KpI5swshHIq08yVvysKdGUmfiWi8xjMtaKkXbeXfdMkKmmX937lW0KpGk_r79A2ELYxV-Q1DrbFFkLoQag5QtCJVrQX91Bn4yhdHsry4A3P_FUng', phone: '+964 771 883 1102', badge: '👑 زبونة ذهبية', frame: 'Gold' }
     ]
@@ -191,6 +228,38 @@ export default function ManagerVisualIdentity() {
       overlayOpacity: 30,
       overlayGradient: 'linear-to-b'
     });
+
+    setOnboardingSlidesForm(customizations.onboardingSlides || [
+      {
+        title: "أرقى الماركات العالمية بين يديكِ 🌸",
+        subtitle: "تسوقي بمتعة تامة من أشهر المتاجر العالمية مثل Shein, Zara, Sephora, Dior وبضمان الأصالة الكاملة 100%.",
+        bgImage: "https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800"
+      },
+      {
+        title: "شحن وتوصيل فائق العناية والسرعة 🚚",
+        subtitle: "نجمع شحناتكِ في مستودعاتنا بتركيا وأمريكا ونوصلها بعناية فائقة وتتبع ذكي مباشر حتى باب منزلكِ بالكرادة والمحافظات.",
+        bgImage: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&q=80&w=800"
+      },
+      {
+        title: "محفظة رقمية ونقاط ولاء ذهبية 🎟️",
+        subtitle: "ادفعي فواتيركِ بضغطة زر عبر محفظتكِ الرقمية واجمعي النقاط الذهبية لتستبدليها بهدايا وتخفيضات شحن حصرية.",
+        bgImage: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&q=80&w=800"
+      }
+    ]);
+
+    setSocialsForm({
+      whatsapp: customizations.socials?.whatsapp || '+964 780 123 4567',
+      instagram: customizations.socials?.instagram || '@iramo.store',
+      facebook: customizations.socials?.facebook || 'Iramo Store',
+      website: customizations.socials?.website || 'www.iramostore.com'
+    });
+
+    setShowStores(customizations.showStores ?? true);
+    setShowLoyalty(customizations.showLoyalty ?? true);
+    setShowBanners(customizations.showBanners ?? true);
+    setAnnouncementText(customizations.announcementText || '');
+    setShowAnnouncement(customizations.showAnnouncement ?? true);
+    setSupportedStoresForm(customizations.supportedStores || []);
 
     // 2. Real-time Listeners for all other collections/documents as required
     const docsToListen = [
@@ -246,7 +315,7 @@ export default function ManagerVisualIdentity() {
   };
 
   // Upload and Compress Image (Auto optimization)
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, storageFolder: string, callback: (url: string) => void) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, storageFolder: string, callback: (url: string) => void, oldUrl?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -255,6 +324,15 @@ export default function ManagerVisualIdentity() {
       // Simulate/perform fast client-side compression or quality check
       const filePath = `${storageFolder}/${Date.now()}_${file.name}`;
       const url = await uploadFileToStorage(file, filePath);
+      
+      if (oldUrl && (oldUrl.includes("utfs.io") || oldUrl.includes("uploadthing"))) {
+        try {
+          await deleteFileFromUploadThing(oldUrl);
+        } catch (delErr) {
+          console.warn("Failed to delete old file from UploadThing:", delErr);
+        }
+      }
+
       callback(url);
       setUploadProgress(null);
     } catch (error) {
@@ -436,8 +514,102 @@ export default function ManagerVisualIdentity() {
     alert('تمت إعادة تهيئة المتجر إلى هويته الافتراضية الفاخرة بنجاح 🌸');
   };
 
+  // STOREFRONT & PRODUCT CRUD MANAGERS
+  const saveStorefrontSettings = async () => {
+    setSaving(true);
+    try {
+      await updateCustomizations({
+        onboardingSlides: onboardingSlidesForm,
+        socials: socialsForm,
+        showStores,
+        showLoyalty,
+        showBanners,
+        announcementText,
+        showAnnouncement,
+        supportedStores: supportedStoresForm
+      });
+      triggerToast('🎉 تم حفظ وتعميم إعدادات الواجهة والمقدمة بنجاح!');
+    } catch (err) {
+      console.error(err);
+      triggerToast('فشل في حفظ الإعدادات، يرجى المحاولة لاحقاً ⚠️', 'info');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddOrUpdateProduct = async () => {
+    if (!productForm.name || !productForm.price || !productForm.image) {
+      triggerToast('يرجى ملء جميع الحقول المطلوبة للمنتج ⚠️', 'info');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let updatedProducts = [...(customizations.presetProducts || [])];
+      
+      if (isEditingProduct) {
+        updatedProducts = updatedProducts.map(p => p.id === productForm.id ? { ...productForm } : p);
+        triggerToast('🎉 تم تعديل المنتج بنجاح!');
+      } else {
+        const newProduct = {
+          ...productForm,
+          id: `prod_${Date.now()}`
+        };
+        updatedProducts.push(newProduct);
+        triggerToast('🎉 تم إضافة المنتج الجديد بنجاح!');
+      }
+
+      await updateCustomizations({ presetProducts: updatedProducts });
+      
+      // Reset product form
+      setProductForm({
+        id: '',
+        name: '',
+        price: 0,
+        category: 'حقائب 👜',
+        image: '',
+        originalStore: 'Shein'
+      });
+      setIsEditingProduct(false);
+    } catch (err) {
+      console.error(err);
+      triggerToast('فشل في حفظ المنتج ⚠️', 'info');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEditProductClick = (prod: any) => {
+    setProductForm({
+      id: prod.id,
+      name: prod.name,
+      price: prod.price,
+      category: prod.category || 'عام',
+      image: prod.image,
+      originalStore: prod.originalStore || 'مستودع إيرامو'
+    });
+    setIsEditingProduct(true);
+    // Scroll up to product form inside storefront tab if needed
+  };
+
+  const handleDeleteProduct = async (prodId: string) => {
+    if (!confirm('هل أنتِ متأكدة من رغبتكِ في حذف هذا المنتج من قائمة العرض للتسليم الفوري؟')) return;
+    
+    setSaving(true);
+    try {
+      const updatedProducts = (customizations.presetProducts || []).filter((p: any) => p.id !== prodId);
+      await updateCustomizations({ presetProducts: updatedProducts });
+      triggerToast('🗑️ تم حذف المنتج بنجاح!');
+    } catch (err) {
+      console.error(err);
+      triggerToast('فشل في حذف المنتج ⚠️', 'info');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <div className="space-y-6 pb-16 animate-fade-in text-right relative" dir="rtl" id="visual-identity-center">
+    <div className="space-y-4 pb-16 animate-fade-in text-right relative" dir="rtl" id="visual-identity-center">
       
       {/* Real-time Toast Alerts overlay */}
       <div className="fixed top-20 right-4 left-4 z-50 pointer-events-none flex flex-col gap-2 max-w-sm mx-auto">
@@ -452,27 +624,39 @@ export default function ManagerVisualIdentity() {
         ))}
       </div>
 
-      {/* Visual Identity Header Card with Luminous Theme */}
-      <div className="bg-gradient-to-br from-pink-500/10 via-rose-50 to-amber-500/10 border border-pink-100/60 p-6 rounded-3xl relative overflow-hidden shadow-sm">
+      {/* Visual Identity Header Card with Luminous Theme - Compact and Toggleable */}
+      <div className="bg-gradient-to-br from-pink-500/10 via-rose-50 to-amber-500/10 border border-pink-100/60 p-4 rounded-2xl relative overflow-hidden shadow-xs">
         <div className="absolute -left-12 -top-12 w-36 h-36 bg-pink-300/10 rounded-full blur-2xl"></div>
-        <div className="flex items-center gap-3.5 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-600 to-rose-500 text-white flex items-center justify-center shadow-md animate-pulse">
-            <Palette className="w-6 h-6" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-600 to-rose-500 text-white flex items-center justify-center shadow-xs">
+              <Palette className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-pink-900">مركز إدارة الهوية البصرية والسمات</h2>
+              <p className="text-[9.5px] text-pink-700 font-bold mt-0.5">مدير البراند الفوري لمتجر إيرامو IRAMO STORE 🎨</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-black text-pink-900">مركز إدارة الهوية البصرية والسمات</h2>
-            <p className="text-[10px] text-pink-700 font-bold mt-0.5">مدير البراند الفوري لمتجر إيرامو IRAMO STORE 🎨</p>
-          </div>
+          <button 
+            type="button"
+            onClick={() => setShowHeaderExplanation(!showHeaderExplanation)}
+            className="text-[9.5px] bg-white/80 hover:bg-pink-100 text-pink-900 px-3 py-1.5 rounded-lg border border-pink-100/60 font-black cursor-pointer self-start sm:self-auto transition-all"
+          >
+            {showHeaderExplanation ? 'إخفاء الشرح 🔼' : 'كيف أستخدم هذا القسم؟ 💡'}
+          </button>
         </div>
-        <p className="text-[11px] text-gray-600 font-medium leading-relaxed mt-3.5">
-          تحكمي بكافة ألوان التطبيق، صور البنرات، حركات ومقولات هدوشة وبطوط، ملفات الفيديو والمظهر العام للمستخدمات دون الحاجة لفتح لوحة تحكم Firebase مجدداً. التعديلات تنعكس فوراً وتلقائياً على هواتف الزبونات بفضل ميزة الاستماع الفوري.
-        </p>
+        {showHeaderExplanation && (
+          <p className="text-[10.5px] text-gray-600 font-bold leading-relaxed mt-2.5 border-t border-pink-100/60 pt-2.5 animate-fade-in">
+            تحكمي بكافة ألوان التطبيق، صور البنرات، حركات ومقولات هدوشة وبطوط، ملفات الفيديو والمظهر العام للمستخدمات دون الحاجة لفتح لوحة تحكم Firebase مجدداً. التعديلات تنعكس فوراً وتلقائياً على هواتف الزبونات بفضل ميزة الاستماع الفوري.
+          </p>
+        )}
       </div>
 
       {/* Navigation Sub Tabs for 13 Sections */}
       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none snap-x" id="visual-identity-tabs">
         {[
           { id: 'hero', label: 'بنر الهيرو 🏞️' },
+          { id: 'storefront', label: 'محتوى المتجر والمقدمة 🛍️' },
           { id: 'hadoosha', label: 'هدوشة 🌸' },
           { id: 'batoot', label: 'بطوط 🦆' },
           { id: 'branding', label: 'الشعار والبراند 🏷️' },
@@ -484,8 +668,16 @@ export default function ManagerVisualIdentity() {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveSubTab(tab.id as any)}
-            className={`px-4 py-2 text-[10.5px] font-black rounded-full whitespace-nowrap snap-center transition-all cursor-pointer ${
+            onClick={() => {
+              setActiveSubTab(tab.id as any);
+              setTimeout(() => {
+                const element = document.getElementById('visual-identity-tabs');
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+              }, 50);
+            }}
+            className={`px-3 py-1.5 text-[10px] font-black rounded-full whitespace-nowrap snap-center transition-all cursor-pointer ${
               activeSubTab === tab.id
                 ? 'bg-pink-700 text-white shadow-sm scale-102'
                 : 'bg-white border border-pink-100 text-pink-800 hover:bg-pink-50'
@@ -561,7 +753,7 @@ export default function ManagerVisualIdentity() {
                     type="file" 
                     accept="image/*" 
                     className="hidden" 
-                    onChange={(e) => handleImageUpload(e, 'banners', (url) => setHeroForm({ ...heroForm, imageUrl: url }))} 
+                    onChange={(e) => handleImageUpload(e, 'banners', (url) => setHeroForm({ ...heroForm, imageUrl: url }), heroForm.imageUrl)} 
                   />
                 </label>
               </div>
@@ -637,6 +829,378 @@ export default function ManagerVisualIdentity() {
           >
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             <span>حفظ تحديثات الهيرو والبنرات الفاخرة</span>
+          </button>
+        </div>
+      )}
+
+      {/* SECTION STOREFRONT: STOREFRONT & INTRO MANAGER */}
+      {activeSubTab === 'storefront' && (
+        <div className="space-y-4 animate-slide-up" id="storefront-manager">
+          
+          {/* General Switches & Announcement Bar */}
+          <div className="bg-white border border-pink-100 rounded-2xl p-4 space-y-3 shadow-xs">
+            <div className="border-b border-pink-50 pb-2">
+              <h4 className="font-black text-xs text-gray-800 flex items-center gap-1.5">
+                <span className="p-1 bg-pink-50 rounded-lg text-pink-700">⚙️</span>
+                <span>تخصيص مكونات شاشة الرئيسية وشريط الإعلانات</span>
+              </h4>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-gray-600">محتوى شريط الإعلانات اللامع 📣</label>
+                <input 
+                  type="text"
+                  value={announcementText}
+                  onChange={(e) => setAnnouncementText(e.target.value)}
+                  className="w-full p-2 text-xs bg-neutral-50 border border-neutral-100 rounded-lg"
+                  placeholder="🌟 أهلاً بكِ في إيرامو ستور! الشحن الأسرع والتوصيل الأرقى في العراق 💖"
+                />
+              </div>
+
+              <div className="flex flex-col justify-end space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-[10.5px] font-bold text-gray-700 select-none">
+                  <input 
+                    type="checkbox"
+                    checked={showAnnouncement}
+                    onChange={(e) => setShowAnnouncement(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
+                  />
+                  <span>تفعيل وعرض شريط الإعلانات أعلى المتجر</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-[10.5px] font-bold text-gray-700 select-none">
+                  <input 
+                    type="checkbox"
+                    checked={showStores}
+                    onChange={(e) => setShowStores(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
+                  />
+                  <span>عرض قائمة المتاجر المدعومة (Shein, Zara, Sephora)</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer text-[10.5px] font-bold text-gray-700 select-none">
+                  <input 
+                    type="checkbox"
+                    checked={showLoyalty}
+                    onChange={(e) => setShowLoyalty(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-pink-600 focus:ring-pink-500 border-gray-300"
+                  />
+                  <span>تفعيل وعرض بطاقة نقاط الولاء والهدايا للزبونات</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Onboarding Slides Customizer */}
+          <div className="bg-white border border-pink-100 rounded-3xl p-5 space-y-5 shadow-sm">
+            <div className="border-b border-pink-50 pb-3">
+              <h4 className="font-black text-sm text-gray-800 flex items-center gap-2">
+                <span className="p-1.5 bg-pink-50 rounded-lg text-pink-700">📱</span>
+                <span>إدارة شاشات الترحيب والمقدمة الافتتاحية (Onboarding Slides)</span>
+              </h4>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">تحكمي بالعناوين، النصوص المرافقة والصور الترحيبية للزبونة عند فتح التطبيق لأول مرة</p>
+            </div>
+
+            <div className="space-y-6">
+              {onboardingSlidesForm.map((slide, idx) => (
+                <div key={idx} className="p-4 bg-pink-50/20 border border-pink-100/50 rounded-2xl space-y-3 relative">
+                  <span className="absolute top-3 left-3 px-2 py-0.5 bg-pink-600 text-white font-black text-[9px] rounded-full">
+                    الشريحة {idx + 1}
+                  </span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10.5px] font-bold text-gray-600">العنوان الترحيبي الرئيسي ✨</label>
+                        <input 
+                          type="text"
+                          value={slide.title}
+                          onChange={(e) => {
+                            const updated = [...onboardingSlidesForm];
+                            updated[idx].title = e.target.value;
+                            setOnboardingSlidesForm(updated);
+                          }}
+                          className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10.5px] font-bold text-gray-600">الوصف التفصيلي الجذاب 📝</label>
+                        <textarea 
+                          rows={2}
+                          value={slide.subtitle}
+                          onChange={(e) => {
+                            const updated = [...onboardingSlidesForm];
+                            updated[idx].subtitle = e.target.value;
+                            setOnboardingSlidesForm(updated);
+                          }}
+                          className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl resize-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-[10.5px] font-bold text-gray-600">رابط الصورة الترويجية للغلاف 🖼️</label>
+                        <div className="flex gap-2">
+                          <input 
+                            type="text"
+                            value={slide.bgImage}
+                            onChange={(e) => {
+                              const updated = [...onboardingSlidesForm];
+                              updated[idx].bgImage = e.target.value;
+                              setOnboardingSlidesForm(updated);
+                            }}
+                            className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                          />
+                          <label className="px-3.5 py-2.5 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-xl text-[10px] font-black shrink-0 cursor-pointer flex items-center justify-center">
+                            رفع 📸
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => handleImageUpload(e, 'onboarding', (url) => {
+                                const updated = [...onboardingSlidesForm];
+                                updated[idx].bgImage = url;
+                                setOnboardingSlidesForm(updated);
+                              })} 
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      {/* Small Preview image */}
+                      {slide.bgImage && (
+                        <div className="h-16 w-full rounded-xl overflow-hidden border border-pink-100">
+                          <img src={slide.bgImage} className="w-full h-full object-cover" alt="Preview" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Social Links Manager */}
+          <div className="bg-white border border-pink-100 rounded-3xl p-5 space-y-4 shadow-sm">
+            <div className="border-b border-pink-50 pb-3">
+              <h4 className="font-black text-sm text-gray-800 flex items-center gap-2">
+                <span className="p-1.5 bg-pink-50 rounded-lg text-pink-700">📞</span>
+                <span>إدارة قنوات التواصل والتثبيت الفوري (Social Links)</span>
+              </h4>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">تعديل رقم الواتساب المعتمد لتلقي وتأكيد حجوزات الطلبات، وتعديل حساب الإنستغرام</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-600">رقم الواتساب للطلبات (WhatsApp) 💬</label>
+                <input 
+                  type="text"
+                  value={socialsForm.whatsapp}
+                  onChange={(e) => setSocialsForm({ ...socialsForm, whatsapp: e.target.value })}
+                  className="w-full p-2.5 text-xs bg-neutral-50 border border-neutral-100 rounded-xl"
+                  placeholder="+964 780 123 4567"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-600">معرف الإنستغرام (Instagram) 📸</label>
+                <input 
+                  type="text"
+                  value={socialsForm.instagram}
+                  onChange={(e) => setSocialsForm({ ...socialsForm, instagram: e.target.value })}
+                  className="w-full p-2.5 text-xs bg-neutral-50 border border-neutral-100 rounded-xl"
+                  placeholder="@iramo.store"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Preset Products CRUD Manager */}
+          <div className="bg-white border border-pink-100 rounded-3xl p-5 space-y-6 shadow-sm">
+            <div className="border-b border-pink-50 pb-3">
+              <h4 className="font-black text-sm text-gray-800 flex items-center gap-2">
+                <span className="p-1.5 bg-pink-50 rounded-lg text-pink-700">👜</span>
+                <span>كتالوج منتجات التسليم الفوري الفاخرة (Products Catalog)</span>
+              </h4>
+              <p className="text-[10px] text-gray-400 font-bold mt-1">أضيفي منتجات تسليم فوري جديدة، عدلي الأسعار، أو احذفي منتجات من شاشة الرئيسية لزبونات المتجر فوريّاً</p>
+            </div>
+
+            {/* Product Add / Edit Form */}
+            <div className="p-4 bg-gradient-to-br from-pink-50/20 via-pink-50/10 to-amber-50/10 border border-pink-100 rounded-2xl space-y-4">
+              <h5 className="font-extrabold text-xs text-pink-900 flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-pink-600 animate-pulse"></span>
+                <span>{isEditingProduct ? 'تعديل بيانات المنتج المحدد ✏️' : 'إضافة منتج تسليم فوري جديد للكتالوج ➕'}</span>
+              </h5>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500">اسم المنتج الأنيق 📝</label>
+                    <input 
+                      type="text"
+                      value={productForm.name}
+                      onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                      placeholder="سيروم ميركل للعناية بالبشرة الأصلي"
+                      className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-500">السعر المعروض (د.ع) 💰</label>
+                      <input 
+                        type="number"
+                        value={productForm.price || ''}
+                        onChange={(e) => setProductForm({ ...productForm, price: parseInt(e.target.value) || 0 })}
+                        placeholder="35000"
+                        className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-gray-500">المتجر الأصلي أو المنشأ 🏷️</label>
+                      <input 
+                        type="text"
+                        value={productForm.originalStore}
+                        onChange={(e) => setProductForm({ ...productForm, originalStore: e.target.value })}
+                        placeholder="Shein / Sephora"
+                        className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500">فئة المنتج (Category) 🗂️</label>
+                    <select
+                      value={productForm.category}
+                      onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                      className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                    >
+                      <option value="حقائب 👜">حقائب نسائية فاخرة 👜</option>
+                      <option value="عناية بالبشرة 🧴">سيروم وعناية بالبشرة 🧴</option>
+                      <option value="عطور فخمة 🧪">عطور عالمية فخمة 🧪</option>
+                      <option value="أحذية راقية 👠">أحذية وكعب راقٍ 👠</option>
+                      <option value="ملابس نسائية 👗">فساتين وملابس نسائية 👗</option>
+                      <option value="مكياج أصلي 💄">مكياج ومستحضرات تجميل 💄</option>
+                      <option value="إكسسوارات ✨">مجوهرات وإكسسوارات ✨</option>
+                      <option value="عام 📦">عام / أخرى 📦</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500">رابط صورة المنتج أو الرفع الفوري 📸</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        value={productForm.image}
+                        onChange={(e) => setProductForm({ ...productForm, image: e.target.value })}
+                        placeholder="https://images.unsplash.com/..."
+                        className="w-full p-2.5 text-xs bg-white border border-pink-100 rounded-xl"
+                      />
+                      <label className="px-3.5 py-2.5 bg-pink-700 hover:bg-pink-800 text-white rounded-xl text-[10px] font-black shrink-0 cursor-pointer flex items-center justify-center">
+                        رفع 📸
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => handleImageUpload(e, 'presets', (url) => {
+                            setProductForm({ ...productForm, image: url });
+                          })} 
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action buttons inside form */}
+              <div className="flex gap-3.5 justify-end">
+                {isEditingProduct && (
+                  <button
+                    onClick={() => {
+                      setProductForm({
+                        id: '',
+                        name: '',
+                        price: 0,
+                        category: 'حقائب 👜',
+                        image: '',
+                        originalStore: 'Shein'
+                      });
+                      setIsEditingProduct(false);
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-bold text-xs cursor-pointer"
+                  >
+                    إلغاء التعديل
+                  </button>
+                )}
+                <button
+                  onClick={handleAddOrUpdateProduct}
+                  className="px-6 py-2 bg-pink-700 hover:bg-pink-800 text-white rounded-xl font-black text-xs cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isEditingProduct ? 'تحديث المنتج بالكتالوج' : 'إدراج المنتج في الكتلوج فوراً'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* List of custom products */}
+            <div className="space-y-3">
+              <h5 className="font-extrabold text-xs text-gray-700">قائمة المنتجات المعروضة للتسليم الفوري ({customizations.presetProducts?.length || 0}) 🗂️</h5>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {(customizations.presetProducts || []).map((prod: any) => (
+                  <div key={prod.id} className="p-3 bg-neutral-50/50 border border-neutral-100 rounded-2xl flex items-center gap-3 justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border shrink-0">
+                        <img src={prod.image} className="w-full h-full object-cover" alt={prod.name} />
+                      </div>
+                      <div className="text-right space-y-0.5">
+                        <p className="text-xs font-black text-gray-800 line-clamp-1">{prod.name}</p>
+                        <p className="text-[10px] text-pink-700 font-extrabold">{prod.price.toLocaleString()} د.ع • <span className="text-gray-400 font-bold">{prod.category}</span></p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-1.5 shrink-0">
+                      <button 
+                        onClick={() => handleEditProductClick(prod)}
+                        className="p-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg cursor-pointer"
+                        title="تعديل المنتج"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteProduct(prod.id)}
+                        className="p-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-lg cursor-pointer"
+                        title="حذف المنتج"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {(customizations.presetProducts || []).length === 0 && (
+                  <div className="col-span-full py-8 text-center text-gray-400 font-bold text-xs bg-neutral-50 border border-dashed rounded-2xl">
+                    لا يوجد منتجات مضافة بالكتالوج حالياً. أضيفي أول منتج لتبدئي 🛍️
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Main Save Bar */}
+          <button 
+            onClick={saveStorefrontSettings}
+            disabled={saving}
+            className="w-full py-4 bg-black hover:bg-neutral-900 text-white rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+          >
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FolderSync className="w-5 h-5" />}
+            <span>حفظ وتعميم إعدادات واجهة المتجر ومقدمة الافتتاح للزبونات</span>
           </button>
         </div>
       )}

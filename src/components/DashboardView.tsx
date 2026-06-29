@@ -663,7 +663,7 @@ export default function DashboardView() {
         <div className="flex justify-between items-start mb-4">
           <div>
             {activeShipment ? (() => {
-              const s = activeShipment.status.toLowerCase();
+              const s = (activeShipment.status || '').toLowerCase();
               let bg = 'bg-pink-50 text-pink-800 border-pink-100/80';
               let dot = 'bg-pink-500';
               if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid')) {

@@ -3,6 +3,7 @@ import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signO
 import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
 import { db, setupAnonymousUser, seedInitialDataIfEmpty, auth } from '../lib/firebase';
 import { UserProfile, Shipment, Invoice, NotificationDetail, AppCustomizations } from '../types';
+import { DEFAULT_AVATAR } from '../utils/avatar';
 
 export type TabType = 'dashboard' | 'tracking' | 'invoices' | 'profile' | 'notifications';
 
@@ -60,7 +61,7 @@ const DEFAULT_PROFILE: UserProfile = {
   city: 'بغداد، العراق',
   points: 1250,
   membership: 'عضوية ذهبية',
-  avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE',
+  avatar: DEFAULT_AVATAR,
   walletBalance: 250000,
   savedCardNumber: '5412 7500 1234 5678',
   savedCardHolder: 'AMNA AL-IRAQ',
@@ -361,237 +362,245 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (err) {
         console.warn("Firestore seeding skipped:", err);
       }
+    });
+  }, []);
 
-      // Real-time listener for user profile
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data() as UserProfile;
-          const targetAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE';
-          if (!data.avatar || data.avatar.includes('chat-attachment') || data.avatar !== targetAvatar) {
-            updateDoc(userDocRef, { avatar: targetAvatar }).catch((e) =>
-              console.warn("Auto-updating profile avatar failed:", e)
-            );
-          }
-          setProfile(data);
+  // 2. Real-time profile listener reacting to user changes
+  useEffect(() => {
+    if (!user) return;
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data() as UserProfile;
+        const targetAvatar = DEFAULT_AVATAR;
+        const oldAvatar = 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE';
+        if (!data.avatar || data.avatar === oldAvatar) {
+          updateDoc(userDocRef, { avatar: targetAvatar }).catch((e) =>
+            console.warn("Auto-updating profile avatar failed:", e)
+          );
         }
-      }, (error) => {
-        console.warn("Firestore Profile real-time sync failed:", error.message);
-      });
+        setProfile(data);
+      }
+    }, (error) => {
+      console.warn("Firestore Profile real-time sync failed:", error.message);
+    });
 
-      // Real-time listener for shipments
-      const shipmentsQuery = query(
-        collection(db, 'shipments'),
-        where('userId', '==', currentUser.uid)
-      );
-      const unsubscribeShipments = onSnapshot(shipmentsQuery, (querySnap) => {
-        const list: Shipment[] = [];
-        querySnap.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as Shipment);
-        });
-        if (list.length > 0) {
-          setShipments(list);
+    return () => {
+      unsubscribeUser();
+    };
+  }, [user]);
+
+  // 3. Real-time collections listener reacting to role & auth state
+  useEffect(() => {
+    if (!user) return;
+
+    const isAdmin = profile?.role === 'admin';
+
+    // Real-time listener for shipments
+    const shipmentsQuery = isAdmin
+      ? collection(db, 'shipments')
+      : query(collection(db, 'shipments'), where('userId', '==', user.uid));
+
+    const unsubscribeShipments = onSnapshot(shipmentsQuery, (querySnap) => {
+      const list: Shipment[] = [];
+      querySnap.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() } as Shipment);
+      });
+      setShipments(list);
+    }, (error) => {
+      console.warn("Firestore Shipments real-time sync failed:", error.message);
+    });
+
+    // Real-time listener for invoices
+    const invoicesQuery = isAdmin
+      ? collection(db, 'invoices')
+      : query(collection(db, 'invoices'), where('userId', '==', user.uid));
+
+    const unsubscribeInvoices = onSnapshot(invoicesQuery, (querySnap) => {
+      const list: Invoice[] = [];
+      querySnap.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() } as Invoice);
+      });
+      setInvoices(list);
+    }, (error) => {
+      console.warn("Firestore Invoices real-time sync failed:", error.message);
+    });
+
+    // Real-time listener for notifications
+    const notificationsQuery = isAdmin
+      ? collection(db, 'notifications')
+      : query(collection(db, 'notifications'), where('userId', '==', user.uid));
+
+    const unsubscribeNotifications = onSnapshot(notificationsQuery, (querySnap) => {
+      const list: NotificationDetail[] = [];
+      querySnap.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() } as NotificationDetail);
+      });
+      const sorted = [...list].sort((a, b) => {
+        if (a.read === b.read) return 0;
+        return a.read ? 1 : -1;
+      });
+      setNotifications(sorted);
+    }, (error) => {
+      console.warn("Firestore Notifications real-time sync failed:", error.message);
+    });
+
+    // Real-time listener for customizations
+    const custDocRef = doc(db, 'settings', 'customizations');
+    const unsubscribeCustomizations = onSnapshot(custDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const rawData = docSnap.data() as AppCustomizations;
+        let data = { ...rawData };
+        let healed = false;
+
+        // 1. Correct spelling: "حدوشة" to "هدوشة" in texts
+        if (data.heroSubtitle && data.heroSubtitle.includes('حدوشة')) {
+          data.heroSubtitle = data.heroSubtitle.replace(/حدوشة/g, 'هدوشة');
+          healed = true;
         }
-      }, (error) => {
-        console.warn("Firestore Shipments real-time sync failed:", error.message);
-      });
-
-      // Real-time listener for invoices
-      const invoicesQuery = query(
-        collection(db, 'invoices'),
-        where('userId', '==', currentUser.uid)
-      );
-      const unsubscribeInvoices = onSnapshot(invoicesQuery, (querySnap) => {
-        const list: Invoice[] = [];
-        querySnap.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as Invoice);
-        });
-        if (list.length > 0) {
-          setInvoices(list);
+        if (data.homeFooterMascotAuthor && data.homeFooterMascotAuthor.includes('حدوشة')) {
+          data.homeFooterMascotAuthor = data.homeFooterMascotAuthor.replace(/حدوشة/g, 'هدوشة');
+          healed = true;
         }
-      }, (error) => {
-        console.warn("Firestore Invoices real-time sync failed:", error.message);
-      });
 
-      // Real-time listener for notifications
-      const notificationsQuery = query(
-        collection(db, 'notifications'),
-        where('userId', '==', currentUser.uid)
-      );
-      const unsubscribeNotifications = onSnapshot(notificationsQuery, (querySnap) => {
-        const list: NotificationDetail[] = [];
-        querySnap.forEach((doc) => {
-          list.push({ id: doc.id, ...doc.data() } as NotificationDetail);
-        });
-        if (list.length > 0) {
-          // Sort notifications
-          const sorted = [...list].sort((a, b) => {
-            if (a.read === b.read) return 0;
-            return a.read ? 1 : -1;
-          });
-          setNotifications(sorted);
+        // 2. Fallback default cute Pixar Hadoosha & Batoot mascot image URLs if empty
+        const originalHero = 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs';
+        const originalHomeMascot = 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw';
+        const originalTrackingMascot = 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8';
+        const originalInvoiceImage = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ';
+        const originalNotifBanner = 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs';
+
+        if (!data.heroImageUrl) {
+          data.heroImageUrl = originalHero;
+          healed = true;
         }
-      }, (error) => {
-        console.warn("Firestore Notifications real-time sync failed:", error.message);
-      });
+        if (!data.homeFooterMascotUrl) {
+          data.homeFooterMascotUrl = originalHomeMascot;
+          healed = true;
+        }
+        if (!data.trackingBatootMascotUrl) {
+          data.trackingBatootMascotUrl = originalTrackingMascot;
+          healed = true;
+        }
+        if (!data.invoiceHadooshaImageUrl) {
+          data.invoiceHadooshaImageUrl = originalInvoiceImage;
+          healed = true;
+        }
+        if (!data.notificationsBannerUrl) {
+          data.notificationsBannerUrl = originalNotifBanner;
+          healed = true;
+        }
 
-      // Real-time listener for customizations
-      const custDocRef = doc(db, 'settings', 'customizations');
-      const unsubscribeCustomizations = onSnapshot(custDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const rawData = docSnap.data() as AppCustomizations;
-          let data = { ...rawData };
-          let healed = false;
+        // Force-heal toggle switches to show all mascot content in client view
+        if (data.showBanners !== true) {
+          data.showBanners = true;
+          healed = true;
+        }
+        if (data.showStores !== true) {
+          data.showStores = true;
+          healed = true;
+        }
+        if (data.showLoyalty !== true) {
+          data.showLoyalty = true;
+          healed = true;
+        }
+        if (data.showAnnouncement !== true) {
+          data.showAnnouncement = true;
+          healed = true;
+        }
 
-          // 1. Correct spelling: "حدوشة" to "هدوشة" in texts
-          if (data.heroSubtitle && data.heroSubtitle.includes('حدوشة')) {
-            data.heroSubtitle = data.heroSubtitle.replace(/حدوشة/g, 'هدوشة');
-            healed = true;
-          }
-          if (data.homeFooterMascotAuthor && data.homeFooterMascotAuthor.includes('حدوشة')) {
-            data.homeFooterMascotAuthor = data.homeFooterMascotAuthor.replace(/حدوشة/g, 'هدوشة');
-            healed = true;
-          }
-
-          // 2. Fallback default cute Pixar Hadoosha & Batoot mascot image URLs if empty
-          const originalHero = 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs';
-          const originalHomeMascot = 'https://lh3.googleusercontent.com/aida/AP1WRLs7xYMw1dlJILjhZ2VzHUgTES3bYmOtS532eeDn9JpDom3Gp-MaPoVhT_e495zabXi9PhvxGhgg_DGSwGWwf9dmXp5ZUWaJm0RCNd8GbCsm6Pfsr0iJJMO0aAxy5MOcRhILsJttChJdkmTm_mZbX5E5mSnfAvK48H_feUdzK0meAC_w_y8FpVIQyOMw7BefhhUleQ-yNPc9mOamo6Uhxfvs0PQtY8Tp68F3pQbyGpw3MPMMO_Rkhd2fSw';
-          const originalTrackingMascot = 'https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8';
-          const originalInvoiceImage = 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ';
-          const originalNotifBanner = 'https://lh3.googleusercontent.com/aida/AP1WRLs7M6Yg7Yd4TtEvkYvHWuFLa4sqCmyFU4xbTd0gc1JWOUaOtMJrX2oCBWsecPrXKVQ4rWPRAE81BJUclFQ9hcjIwd1DcZSBM5h_gHUg3ugB-AKJSuGQ4-unn6Z8e7LoQ9DP8Vx87nAaBbqttEzIDfrWQSEMvv7M7CQ0dhPEf4vVt9RSg5yzRe8_V_PQICnoHUGYEMdGL0xYFPlWfwArGud6nFBBWis1UivPxaljrjLjHSXxT3xWcLE1dcs';
-
-          if (!data.heroImageUrl) {
-            data.heroImageUrl = originalHero;
-            healed = true;
-          }
-          if (!data.homeFooterMascotUrl) {
-            data.homeFooterMascotUrl = originalHomeMascot;
-            healed = true;
-          }
-          if (!data.trackingBatootMascotUrl) {
-            data.trackingBatootMascotUrl = originalTrackingMascot;
-            healed = true;
-          }
-          if (!data.invoiceHadooshaImageUrl) {
-            data.invoiceHadooshaImageUrl = originalInvoiceImage;
-            healed = true;
-          }
-          if (!data.notificationsBannerUrl) {
-            data.notificationsBannerUrl = originalNotifBanner;
-            healed = true;
-          }
-
-          // Force-heal toggle switches to show all mascot content in client view
-          if (data.showBanners !== true) {
-            data.showBanners = true;
-            healed = true;
-          }
-          if (data.showStores !== true) {
-            data.showStores = true;
-            healed = true;
-          }
-          if (data.showLoyalty !== true) {
-            data.showLoyalty = true;
-            healed = true;
-          }
-          if (data.showAnnouncement !== true) {
-            data.showAnnouncement = true;
-            healed = true;
-          }
-
-          // 3. Fallback/heal banners list for "حدوشة" spelling, keep custom images
-          if (data.banners) {
-            let bannerHealed = false;
-            const healedBanners = data.banners.map(bn => {
-              let updatedBn = { ...bn };
-              if (updatedBn.id === 'banner_1') {
-                if (!updatedBn.imageUrl) {
-                  updatedBn.imageUrl = originalHero;
-                  bannerHealed = true;
-                }
-                if (updatedBn.subtitle && updatedBn.subtitle.includes('حدوشة')) {
-                  updatedBn.subtitle = updatedBn.subtitle.replace(/حدوشة/g, 'هدوشة');
-                  bannerHealed = true;
-                }
-              }
-              if (updatedBn.title && updatedBn.title.includes('حدوشة')) {
-                updatedBn.title = updatedBn.title.replace(/حدوشة/g, 'هدوشة');
+        // 3. Fallback/heal banners list for "حدوشة" spelling, keep custom images
+        if (data.banners) {
+          let bannerHealed = false;
+          const healedBanners = data.banners.map(bn => {
+            let updatedBn = { ...bn };
+            if (updatedBn.id === 'banner_1') {
+              if (!updatedBn.imageUrl) {
+                updatedBn.imageUrl = originalHero;
                 bannerHealed = true;
               }
               if (updatedBn.subtitle && updatedBn.subtitle.includes('حدوشة')) {
                 updatedBn.subtitle = updatedBn.subtitle.replace(/حدوشة/g, 'هدوشة');
                 bannerHealed = true;
               }
-              return updatedBn;
-            });
-
-            // Ensure banner_1 is present
-            const hasBanner1 = healedBanners.some(bn => bn.id === 'banner_1');
-            if (!hasBanner1) {
-              healedBanners.unshift({
-                id: 'banner_1',
-                imageUrl: originalHero,
-                title: 'مرحباً، {name}! ✨',
-                subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
-              });
+            }
+            if (updatedBn.title && updatedBn.title.includes('حدوشة')) {
+              updatedBn.title = updatedBn.title.replace(/حدوشة/g, 'هدوشة');
               bannerHealed = true;
             }
-
-            if (bannerHealed) {
-              data.banners = healedBanners;
-              healed = true;
+            if (updatedBn.subtitle && updatedBn.subtitle.includes('حدوشة')) {
+              updatedBn.subtitle = updatedBn.subtitle.replace(/حدوشة/g, 'هدوشة');
+              bannerHealed = true;
             }
-          } else {
-            data.banners = [
-              {
-                id: 'banner_1',
-                imageUrl: originalHero,
-                title: 'مرحباً، {name}! ✨',
-                subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
-              },
-              {
-                id: 'banner_2',
-                imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800',
-                title: 'شحن مخفض من Shein الكويت! 🛍️',
-                subtitle: 'فقط 5,000 د.ع لكل كغم مع شحن جوي سريع!'
-              },
-              {
-                id: 'banner_3',
-                imageUrl: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=800',
-                title: 'أقوى مستحضرات التجميل الأصلية 💄',
-                subtitle: 'شحن مضمون 100% من أشهر الماركات العالمية لباب بيتكِ'
-              }
-            ];
+            return updatedBn;
+          });
+
+          // Ensure banner_1 is present
+          const hasBanner1 = healedBanners.some(bn => bn.id === 'banner_1');
+          if (!hasBanner1) {
+            healedBanners.unshift({
+              id: 'banner_1',
+              imageUrl: originalHero,
+              title: 'مرحباً، {name}! ✨',
+              subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
+            });
+            bannerHealed = true;
+          }
+
+          if (bannerHealed) {
+            data.banners = healedBanners;
             healed = true;
           }
-
-          if (healed) {
-            setCustomizations(data);
-            setDoc(custDocRef, data, { merge: true }).catch(e => {
-              console.warn("Could not heal customizations in firestore:", e);
-            });
-            return;
-          }
-          setCustomizations(data);
         } else {
-          // Seed the document if it doesn't exist
-          setDoc(custDocRef, DEFAULT_CUSTOMIZATIONS).catch(e => {
-            console.warn("Could not seed customizations to firestore:", e);
-          });
+          data.banners = [
+            {
+              id: 'banner_1',
+              imageUrl: originalHero,
+              title: 'مرحباً، {name}! ✨',
+              subtitle: 'أهلاً بكِ في عالم هدوشة وبطوط 💖'
+            },
+            {
+              id: 'banner_2',
+              imageUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&q=80&w=800',
+              title: 'شحن مخفض من Shein الكويت! 🛍️',
+              subtitle: 'فقط 5,000 د.ع لكل كغم مع شحن جوي سريع!'
+            },
+            {
+              id: 'banner_3',
+              imageUrl: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=800',
+              title: 'أقوى مستحضرات التجميل الأصلية 💄',
+              subtitle: 'شحن مضمون 100% من أشهر الماركات العالمية لباب بيتكِ'
+            }
+          ];
+          healed = true;
         }
-      }, (error) => {
-        console.warn("Firestore Customizations real-time sync failed:", error.message);
-      });
 
-      return () => {
-        unsubscribeUser();
-        unsubscribeShipments();
-        unsubscribeInvoices();
-        unsubscribeNotifications();
-        unsubscribeCustomizations();
-      };
+        if (healed) {
+          setCustomizations(data);
+          setDoc(custDocRef, data, { merge: true }).catch(e => {
+            console.warn("Could not heal customizations in firestore:", e);
+          });
+          return;
+        }
+        setCustomizations(data);
+      } else {
+        // Seed the document if it doesn't exist
+        setDoc(custDocRef, DEFAULT_CUSTOMIZATIONS).catch(e => {
+          console.warn("Could not seed customizations to firestore:", e);
+        });
+      }
+    }, (error) => {
+      console.warn("Firestore Customizations real-time sync failed:", error.message);
     });
-  }, []);
+
+    return () => {
+      unsubscribeShipments();
+      unsubscribeInvoices();
+      unsubscribeNotifications();
+      unsubscribeCustomizations();
+    };
+  }, [user, profile?.role]);
 
   const updateProfile = async (
     name: string,

@@ -690,9 +690,9 @@ export default function InvoiceView() {
     // Look for matching shipment by order_id, tracking number, or store origin
     const match = (shipments || []).find(s => 
       s.trackingNumber === invoice.order_id || 
-      invoice.order_id.toLowerCase().includes(s.trackingNumber.toLowerCase()) ||
-      s.origin.toLowerCase().includes(invoice.store.toLowerCase()) ||
-      invoice.store.toLowerCase().includes(s.origin.toLowerCase())
+      (invoice.order_id || '').toLowerCase().includes((s.trackingNumber || '').toLowerCase()) ||
+      (s.origin || '').toLowerCase().includes((invoice.store || '').toLowerCase()) ||
+      (invoice.store || '').toLowerCase().includes((s.origin || '').toLowerCase())
     );
 
     if (match && match.items) {

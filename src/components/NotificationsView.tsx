@@ -84,25 +84,7 @@ export default function NotificationsView() {
         </div>
       </div>
 
-      {/* Slide-down alert toast */}
-      <AnimatePresence>
-        {alertToast.show && (
-          <motion.div 
-            initial={{ opacity: 0, y: -40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -40 }}
-            className="fixed top-12 left-4 right-4 bg-pink-950/95 backdrop-blur-xl border border-pink-700/30 text-white rounded-3xl p-4 shadow-2xl z-[9999] flex items-start gap-3 text-right"
-          >
-            <div className="w-10 h-10 bg-white/10 rounded-2xl flex items-center justify-center shrink-0 text-pink-300">
-              <Bell className="w-5 h-5 animate-bounce" />
-            </div>
-            <div className="flex-1 space-y-0.5">
-              <h4 className="font-black text-xs text-pink-100">{alertToast.title}</h4>
-              <p className="text-[10px] text-white/90 leading-relaxed font-bold">{alertToast.message}</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Slide-down alert toast has been disabled to keep screen empty of popup alerts as requested */}
 
       {/* Shipment Status Simulator */}
       {shipments.length > 0 && (

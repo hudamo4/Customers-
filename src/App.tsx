@@ -1,5 +1,6 @@
 import React from 'react';
 import { AppProvider, useApp, TabType } from './context/AppContext';
+import { DEFAULT_AVATAR } from './utils/avatar';
 import DashboardView from './components/DashboardView';
 import TrackingView from './components/TrackingView';
 import InvoiceView from './components/InvoiceView';
@@ -8,14 +9,16 @@ import NotificationsView from './components/NotificationsView';
 import ManagerPortal from './components/manager/ManagerPortal';
 import HadooshaAssistant from './components/HadooshaAssistant';
 import LoginModal from './components/LoginModal';
+import IntroSplashScreen from './components/IntroSplashScreen';
 import { Home, Truck, Receipt, User, Bell, ChevronRight, Loader2, LogOut, Sparkles } from 'lucide-react';
 import { triggerLightHaptic, triggerSuccessHaptic, triggerWarningHaptic } from './utils/haptics';
 import { motion, AnimatePresence } from 'motion/react';
 
 function AppContent() {
-  const { activeTab, setActiveTab, notifications, profile, loading, appMode, setAppMode, logout } = useApp();
+  const { activeTab, setActiveTab, notifications, profile, loading, appMode, setAppMode, logout, isLoggedIn, setShowLoginModal } = useApp();
   const [pushToast, setPushToast] = React.useState<{ id?: string; title: string; content: string; image?: string; action?: string; type?: string } | null>(null);
   const [initialLoaded, setInitialLoaded] = React.useState<boolean>(false);
+  const [showIntro, setShowIntro] = React.useState<boolean>(() => !sessionStorage.getItem('iramo_intro_dismissed'));
 
   // To avoid popping up existing unread notifications when the app starts,
   // we store the initial unread notification IDs.
@@ -39,34 +42,9 @@ function AppContent() {
       return;
     }
 
-    if (initialLoaded && notifications.length > 0) {
-      const latest = notifications[0];
-      // Only show toast if the notification is unread, not already shown, and NOT in the initial unread set
-      if (latest && !latest.read && latest.id !== pushToast?.id && latest.id && !initialUnreadIdsRef.current.has(latest.id)) {
-        setPushToast({
-          id: latest.id,
-          title: latest.title,
-          content: latest.content,
-          image: latest.image,
-          action: latest.action,
-          type: latest.type
-        });
-
-        // Trigger warning alert
-        triggerWarningHaptic();
-
-        // Play gentle magical alert sound
-        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/1435/1435-120.wav");
-        audio.volume = 0.15;
-        audio.play().catch(() => {});
-
-        const timer = setTimeout(() => {
-          setPushToast(null);
-        }, 8000);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [notifications, loading, initialLoaded, pushToast?.id]);
+    // Popup notification toast has been disabled to keep screen empty of popup alerts as requested.
+    // Unread notifications are still logged and accessible via the notifications view.
+  }, [notifications, loading, initialLoaded]);
 
   const handleSwitchMode = (mode: 'customer' | 'manager') => {
     setAppMode(mode);
@@ -155,32 +133,6 @@ function AppContent() {
         {/* Adjust top spacing on desktop to account for telephone status bar */}
         <div className="flex-1 flex flex-col relative h-full md:pt-7 overflow-hidden">
           
-          {/* Dynamic Mobile Push Notification Toast overlay */}
-          <AnimatePresence>
-            {pushToast && (
-              <motion.div 
-                initial={{ opacity: 0, y: -40, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                className="absolute top-20 left-4 right-4 z-55"
-              >
-                <div className="bg-white/95 backdrop-blur-md p-3.5 rounded-2xl shadow-xl border border-pink-100 flex items-center gap-3">
-                  {pushToast.image ? (
-                    <img src={pushToast.image} className="w-10 h-10 rounded-xl object-cover shrink-0" referrerPolicy="no-referrer" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-700 flex items-center justify-center shrink-0">
-                      <Bell className="w-5 h-5 animate-bounce" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 text-right">
-                    <h5 className="font-black text-pink-950 text-xs truncate">{pushToast.title}</h5>
-                    <p className="text-[10px] text-gray-500 font-bold leading-normal truncate">{pushToast.content}</p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* 2. MAIN HEADER - Sticky at the top of the phone screen */}
           {appMode === 'customer' && (
             <header className="absolute top-0 left-0 right-0 h-16 border-b border-pink-100/30 flex items-center justify-between px-4 bg-[#fffcfb]/85 backdrop-blur-xl z-20 shadow-xs">
@@ -215,7 +167,7 @@ function AppContent() {
                   <img
                     alt="User Profile"
                     className="w-full h-full object-cover"
-                    src={profile?.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'}
+                    src={profile?.avatar || DEFAULT_AVATAR}
                     referrerPolicy="no-referrer"
                   />
                 </button>
@@ -294,6 +246,17 @@ function AppContent() {
 
       {/* Elegant Login Modal Portal */}
       <LoginModal />
+
+      {/* Intro Splash Screen */}
+      <AnimatePresence>
+        {showIntro && (
+          <IntroSplashScreen
+            onDismiss={() => setShowIntro(false)}
+            onLoginTrigger={() => setShowLoginModal(true)}
+            isLoggedIn={isLoggedIn}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

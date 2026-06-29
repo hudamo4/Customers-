@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { DEFAULT_AVATAR } from '../utils/avatar';
 import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
 import {
   initializeFirestore,
@@ -32,25 +33,126 @@ try {
   console.warn("Firebase Storage failed to initialize:", e);
 }
 
-export async function uploadFileToStorage(file: File, path: string): Promise<string> {
-  if (storage) {
-    try {
-      const storageRef = ref(storage, path);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(snapshot.ref);
-      return downloadUrl;
-    } catch (e) {
-      console.warn("Firebase Storage upload failed, falling back to local base64:", e);
-    }
+function compressImage(file: File, maxWidth = 1024, maxHeight = 1024, quality = 0.75): Promise<File | Blob> {
+  if (!file.type.startsWith('image/')) {
+    return Promise.resolve(file);
   }
-  // Robust Fallback: Convert to Data URL (base64) so it updates instantly and saves beautifully to Firestore!
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (err) => reject(err);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', quality);
+        } else {
+          resolve(file);
+        }
+      };
+      img.onerror = () => resolve(file);
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
     reader.readAsDataURL(file);
   });
 }
+
+export async function uploadFileToStorage(file: File, path: string): Promise<string> {
+  let processedFile: File | Blob = file;
+  try {
+    processedFile = await compressImage(file);
+  } catch (compressErr) {
+    console.warn("Client-side image compression failed, using original file:", compressErr);
+  }
+
+  try {
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(processedFile);
+    });
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fileData: base64Data,
+        fileName: file.name,
+        fileType: file.type,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Upload failed: ${errText || response.statusText}`);
+    }
+
+    const result = await response.json();
+    if (!result.url) {
+      throw new Error("Upload succeeded but no URL was returned.");
+    }
+    return result.url;
+  } catch (e) {
+    console.error("UploadThing upload failed, falling back to local base64:", e);
+    // Robust Fallback: Convert to Data URL (base64) so it updates instantly and saves beautifully to Firestore!
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (err) => reject(err);
+      reader.readAsDataURL(processedFile);
+    });
+  }
+}
+
+export async function uploadFileToUploadThing(file: File): Promise<string> {
+  return uploadFileToStorage(file, "");
+}
+
+export async function deleteFileFromUploadThing(fileUrl: string): Promise<boolean> {
+  try {
+    const response = await fetch("/api/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fileUrl }),
+    });
+    const result = await response.json();
+    return !!result.success;
+  } catch (error) {
+    console.error("Failed to delete file from UploadThing:", error);
+    return false;
+  }
+}
+
 
 export enum OperationType {
   CREATE = 'create',
@@ -168,7 +270,7 @@ export async function seedInitialDataIfEmpty(uid: string) {
         savedCardNumber: '5412 7500 1234 5678',
         savedCardHolder: 'AMNA AL-IRAQ',
         savedCardExpiry: '12/28',
-        avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'
+        avatar: DEFAULT_AVATAR
       });
     }
 
@@ -203,7 +305,7 @@ export async function seedInitialDataIfEmpty(uid: string) {
         city: 'بغداد، العراق',
         points: 1250,
         membership: 'عضوية ذهبية',
-        avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE',
+        avatar: DEFAULT_AVATAR,
         walletBalance: 250000,
         savedCardNumber: '5412 7500 1234 5678',
         savedCardHolder: 'AMNA AL-IRAQ',
@@ -306,11 +408,12 @@ export async function runFirestoreDiagnosticTest(): Promise<DiagnosticResult> {
 
     // 2. Create a document in collection "users"
     console.log("Diagnostic: Creating test document...");
-    const testDocRef = doc(collection(db, 'users'));
+    const testDocRef = doc(db, 'users', `${uid}_test`);
     const testDocId = testDocRef.id;
     const testData = {
       name: "اختبار",
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      userId: uid
     };
     
     await setDoc(testDocRef, testData);

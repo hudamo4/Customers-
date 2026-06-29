@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { DEFAULT_AVATAR } from '../utils/avatar';
 import { User, Phone, MapPin, Edit, Check, Star, Gift, ChevronLeft, LogOut, Camera, Shield, Wallet, Bell, AlertCircle, ShoppingBag, Globe, X, CreditCard, Lock, ShieldCheck, HelpCircle, ArrowLeft, CheckCircle, Database, Loader2, Upload, Award, Share2, Ticket, Link, Compass } from 'lucide-react';
-import { runFirestoreDiagnosticTest, DiagnosticResult } from '../lib/firebase';
+import { runFirestoreDiagnosticTest, DiagnosticResult, db, uploadFileToStorage } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 const AVAILABLE_STORES = [
   {
@@ -115,7 +117,7 @@ const AVAILABLE_STORES = [
 ];
 
 export default function ProfileView() {
-  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode, logout } = useApp();
+  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode, logout, user } = useApp();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [name, setName] = useState<string>(profile?.name || '');
   const [phone, setPhone] = useState<string>(profile?.phone || '');
@@ -372,7 +374,7 @@ export default function ProfileView() {
               <img
                 alt="Profile Avatar"
                 className="w-full h-full object-cover"
-                src={profile?.avatar || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'}
+                src={profile?.avatar || DEFAULT_AVATAR}
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -977,11 +979,20 @@ export default function ProfileView() {
 
             <div className="flex gap-2 pt-2">
               <button 
-                onClick={() => {
+                onClick={async () => {
                   if (passcodeInput === '9988' || passcodeInput === 'huda44' || passcodeInput === 'huda2026') {
                     setAppMode('manager');
                     setShowPasscodeModal(false);
                     setPasscodeInput('');
+                    if (user && profile) {
+                      try {
+                        const userDocRef = doc(db, 'users', user.uid);
+                        await updateDoc(userDocRef, { role: 'admin' });
+                        console.log("Successfully elevated user role to admin in Firestore!");
+                      } catch (e) {
+                        console.warn("Could not elevate user role to admin in DB:", e);
+                      }
+                    }
                   } else {
                     setPasscodeError(true);
                     setPasscodeInput('');
@@ -1026,7 +1037,7 @@ export default function ProfileView() {
               <span className="text-[10px] text-gray-400 font-bold block">رمزيات مقترحة سريعة:</span>
               <div className="grid grid-cols-4 gap-2 justify-center">
                 {[
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE',
+                  DEFAULT_AVATAR,
                   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=120',
                   'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=120',
                   'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&q=80&w=120'
@@ -1055,22 +1066,26 @@ export default function ProfileView() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        if (typeof reader.result === 'string') {
-                          setNewAvatarUrl(reader.result);
-                        }
-                      };
-                      reader.readAsDataURL(file);
+                      setNewAvatarUrl('Uploading...');
+                      try {
+                        const url = await uploadFileToStorage(file, "profiles");
+                        setNewAvatarUrl(url);
+                      } catch (err) {
+                        console.error("UploadThing upload failed:", err);
+                        setNewAvatarUrl('');
+                      }
                     }
                   }}
                 />
               </label>
-              {newAvatarUrl && newAvatarUrl.startsWith('data:image/') && (
-                <p className="text-[9.5px] text-emerald-600 font-bold text-center">✓ تم تحميل الصورة المرفوعة (اضغطي حفظ)</p>
+              {newAvatarUrl === 'Uploading...' && (
+                <p className="text-[9.5px] text-pink-600 font-bold text-center animate-pulse">جاري رفع الصورة إلى UploadThing... 🚀</p>
+              )}
+              {newAvatarUrl && newAvatarUrl.startsWith('http') && (
+                <p className="text-[9.5px] text-emerald-600 font-bold text-center">✓ تم رفع الصورة إلى UploadThing (اضغطي حفظ) ✨</p>
               )}
             </div>
 
@@ -1155,7 +1170,7 @@ export default function ProfileView() {
                   </div>
                 ) : (
                   <img 
-                    src={editAvatarUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'} 
+                    src={editAvatarUrl || DEFAULT_AVATAR} 
                     alt="New Avatar Preview" 
                     className="w-full h-full object-cover"
                   />
@@ -1205,21 +1220,22 @@ export default function ProfileView() {
                   <div className="flex items-center gap-2">
                     <label className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-600 hover:text-gray-700 border border-gray-200 py-2 rounded-xl text-xs font-black cursor-pointer transition-all active:scale-[0.98] flex items-center justify-center gap-1.5">
                       <Upload className="w-3.5 h-3.5" />
-                      <span>رفع صورة من الملفات 📁</span>
+                      <span>{editAvatarUrl === 'Uploading...' ? 'جاري الرفع...' : 'رفع صورة من الملفات 📁'}</span>
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              if (typeof reader.result === 'string') {
-                                setEditAvatarUrl(reader.result);
-                              }
-                            };
-                            reader.readAsDataURL(file);
+                            setEditAvatarUrl('Uploading...');
+                            try {
+                              const url = await uploadFileToStorage(file, "profiles");
+                              setEditAvatarUrl(url);
+                            } catch (err) {
+                              console.error("UploadThing upload failed:", err);
+                              setEditAvatarUrl('');
+                            }
                           }
                         }}
                       />

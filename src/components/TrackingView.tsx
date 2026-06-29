@@ -55,8 +55,8 @@ export default function TrackingView() {
 
   // Filter shipments by searchQuery
   const filteredShipments = shipments.filter(s => 
-    s.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.origin.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.trackingNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.origin || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Find selected shipment, or fallback to first filtered, or null
@@ -104,8 +104,8 @@ export default function TrackingView() {
       setCalcWeight(parsed);
       
       const foundStore = CALCULATOR_STORES.find(s => 
-        activeShipment.origin.toLowerCase().includes(s.name.toLowerCase()) ||
-        s.name.toLowerCase().includes(activeShipment.origin.toLowerCase())
+        (activeShipment.origin || '').toLowerCase().includes((s.name || '').toLowerCase()) ||
+        (s.name || '').toLowerCase().includes((activeShipment.origin || '').toLowerCase())
       );
       if (foundStore) {
         setCalcStore(foundStore.name);

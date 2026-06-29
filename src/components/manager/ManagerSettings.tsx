@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StoreCustomization, PresetProductCustomization, BannerItem } from '../../types';
+import { uploadFileToStorage } from '../../lib/firebase';
 import { 
   Settings, 
   Eye, 
@@ -42,22 +43,19 @@ export default function ManagerSettings() {
   }) => {
     const [isUploading, setIsUploading] = useState(false);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
       setIsUploading(true);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          onChange(reader.result);
-        }
+      try {
+        const url = await uploadFileToStorage(file, "customizations");
+        onChange(url);
+      } catch (err) {
+        console.error("UploadThing upload failed:", err);
+      } finally {
         setIsUploading(false);
-      };
-      reader.onerror = () => {
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+      }
     };
 
     return (
