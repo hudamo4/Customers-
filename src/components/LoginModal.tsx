@@ -6,7 +6,19 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Phone, User as UserIcon, Lock, Sparkles, AlertCircle, Loader2, Key, Heart, ArrowLeft, ArrowRight } from 'lucide-react';
 
 export default function LoginModal() {
-  const { showLoginModal, setShowLoginModal, login, register } = useApp();
+  const { showLoginModal, setShowLoginModal, login, register, setAppMode } = useApp();
+
+  // Lock body scroll when login modal is active
+  React.useEffect(() => {
+    if (showLoginModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showLoginModal]);
   
   // 'customer' | 'manager'
   const [activePortal, setActivePortal] = useState<'customer' | 'manager'>('customer');
@@ -18,6 +30,7 @@ export default function LoginModal() {
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('بغداد');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -96,6 +109,10 @@ export default function LoginModal() {
       setIsSubmitting(false);
       if (res.success) {
         triggerSuccessHaptic();
+        const uClean = username.trim().toLowerCase();
+        if (uClean === 'admin' || uClean === 'admin_001' || uClean === 'هدى' || uClean === 'هدوشة' || uClean === 'huda') {
+          setAppMode('manager');
+        }
         setShowLoginModal(false);
         resetForm();
       } else {
@@ -104,7 +121,7 @@ export default function LoginModal() {
       }
     } else {
       // Signup
-      const res = await register(username, phone, fullName, password);
+      const res = await register(username, phone, fullName, password, city);
       if (res.success) {
         // Auto-login after registration
         const loginRes = await login(username, password);
@@ -139,6 +156,7 @@ export default function LoginModal() {
     
     if (res.success) {
       triggerSuccessHaptic();
+      setAppMode('manager');
       setShowLoginModal(false);
       resetForm();
     } else {
@@ -158,27 +176,16 @@ export default function LoginModal() {
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        {/* Backdrop */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={() => {
-            triggerLightHaptic();
-            setShowLoginModal(false);
-          }}
-          className="absolute inset-0 bg-pink-950/40 backdrop-blur-md"
-        />
-
+      <div className="fixed inset-0 z-[99998] bg-pink-950/40 backdrop-blur-md animate-fade-in" onClick={() => setShowLoginModal(false)}>
         {/* Beautiful Beige/Pink Container */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          transition={{ type: 'spring', damping: 26, stiffness: 360 }}
-          className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] bg-[#fffdfc] p-6 text-right border-2 border-pink-100 shadow-[0_20px_50px_rgba(219,39,119,0.12)]"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.15 }}
+          className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[2.5rem] bg-[#fffdfc] p-6 text-right border-2 border-pink-100 shadow-[0_20px_50px_rgba(219,39,119,0.12)]"
           dir="rtl"
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Subtle luxurious glowing background gradients */}
           <div className="absolute top-0 right-0 w-36 h-36 bg-pink-100/50 rounded-full blur-2xl -mr-12 -mt-12 pointer-events-none" />
@@ -304,7 +311,7 @@ export default function LoginModal() {
                 }`}
               >
                 <Sparkles size={13} />
-                بوابة المديرة هدوشة
+                بوابة المديرة هدوشة 👑
               </button>
             </motion.div>
           )}
@@ -428,6 +435,39 @@ export default function LoginModal() {
                         <div className="absolute inset-y-0 right-0 flex items-center pr-3 text-pink-400 pointer-events-none">
                           <Phone size={15} />
                         </div>
+                      </div>
+                    </div>
+
+                    {/* City Select */}
+                    <div>
+                      <label className="block text-[11px] font-black text-pink-950 mb-1.5 mr-1">
+                        المحافظة / موقع التسليم 📍
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          className="w-full h-11 pr-4 pl-4 rounded-xl bg-pink-50/20 border-2 border-pink-100/50 hover:border-pink-200 focus:border-pink-500 text-pink-950 text-xs focus:outline-none focus:ring-1 focus:ring-pink-500/30 transition-all text-right font-bold cursor-pointer"
+                        >
+                          <option value="بغداد">بغداد</option>
+                          <option value="البصرة">البصرة</option>
+                          <option value="النجف الأشرف">النجف الأشرف</option>
+                          <option value="كربلاء المقدسة">كربلاء المقدسة</option>
+                          <option value="بابل">بابل</option>
+                          <option value="أربيل">أربيل</option>
+                          <option value="السليمانية">السليمانية</option>
+                          <option value="دهوك">دهوك</option>
+                          <option value="نينوى">نينوى</option>
+                          <option value="الأنبار">الأنبار</option>
+                          <option value="ديالى">ديالى</option>
+                          <option value="صلاح الدين">صلاح الدين</option>
+                          <option value="كركوك">كركوك</option>
+                          <option value="واسط">واسط</option>
+                          <option value="ميسان">ميسان</option>
+                          <option value="ذي قار">ذي قار</option>
+                          <option value="المثنى">المثنى</option>
+                          <option value="القادسية">القادسية</option>
+                        </select>
                       </div>
                     </div>
                   </>

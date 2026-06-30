@@ -103,17 +103,10 @@ export default function ManagerNotifications() {
         });
       });
       
-      // Merge with fallback mock list to ensure there are always users to test targeting
-      const merged = [...list];
-      FALLBACK_USERS.forEach(fb => {
-        if (!merged.some(u => u.uid === fb.uid)) {
-          merged.push(fb);
-        }
-      });
-      setUsers(merged);
+      setUsers(list);
     }, (err) => {
       console.warn("Could not load users collection:", err);
-      setUsers(FALLBACK_USERS);
+      setUsers([]);
     });
 
     // 2. Fetch Notifications

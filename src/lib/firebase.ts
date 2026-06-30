@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { DEFAULT_AVATAR } from '../utils/avatar';
-import { getAuth, signInAnonymously, onAuthStateChanged, User } from 'firebase/auth';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import {
   initializeFirestore,
   doc,
@@ -214,22 +214,10 @@ export async function testConnection() {
 
 let memoryFallbackUid = 'user_amna_fallback';
 
-// Setup Anonymous auth to bypass manual credentials requirement
-export async function setupAnonymousUser(onUserReady: (user: User) => void) {
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      onUserReady(user);
-    } else {
-      try {
-        const credential = await signInAnonymously(auth);
-        if (credential.user) {
-          onUserReady(credential.user);
-        }
-      } catch (error) {
-        console.warn("Anonymous authentication restricted, using memory fallback UID:", error);
-        onUserReady({ uid: memoryFallbackUid } as User);
-      }
-    }
+// Setup Auth Listener to track real customer / admin login
+export function setupAuthListener(onUserReady: (user: User | null) => void) {
+  return onAuthStateChanged(auth, (user) => {
+    onUserReady(user);
   });
 }
 
@@ -252,29 +240,7 @@ export async function runMigrations(uid: string) {
 // Seed helper to populate empty collections with beautiful interactive data
 export async function seedInitialDataIfEmpty(uid: string) {
   try {
-    // Seed Huda_001 if not exists
-    const hudaDocRef = doc(db, 'users', 'Huda_001');
-    const hudaSnap = await getDoc(hudaDocRef);
-    if (!hudaSnap.exists()) {
-      await setDoc(hudaDocRef, {
-        uid: 'Huda_001',
-        customerId: 'Huda_001',
-        phone: '07801234567',
-        password: '123456',
-        name: 'هدى',
-        city: 'بابل',
-        role: 'customer',
-        membership: 'gold',
-        points: 1250,
-        walletBalance: 250000,
-        savedCardNumber: '5412 7500 1234 5678',
-        savedCardHolder: 'AMNA AL-IRAQ',
-        savedCardExpiry: '12/28',
-        avatar: DEFAULT_AVATAR
-      });
-    }
-
-    // Seed Admin_001 if not exists
+    // Seed Admin_001 if not exists so there's always an active admin login
     const adminDocRef = doc(db, 'users', 'Admin_001');
     const adminSnap = await getDoc(adminDocRef);
     if (!adminSnap.exists()) {
@@ -296,85 +262,22 @@ export async function seedInitialDataIfEmpty(uid: string) {
     const userDocRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userDocRef);
 
-    if (!userSnap.exists()) {
-      // Seed user profile
+    if (!userSnap.exists() && uid !== 'Admin_001') {
+      // Seed a clean, fresh, completely empty profile for the new user
       const defaultUser: UserProfile = {
         uid,
-        name: 'أمنة العراق',
-        phone: '+964 770 123 4567',
+        name: 'زبونة جديدة مجهولة',
+        phone: '',
         city: 'بغداد، العراق',
-        points: 1250,
-        membership: 'عضوية ذهبية',
+        points: 0,
+        membership: 'عضوية فضية',
         avatar: DEFAULT_AVATAR,
-        walletBalance: 250000,
-        savedCardNumber: '5412 7500 1234 5678',
-        savedCardHolder: 'AMNA AL-IRAQ',
-        savedCardExpiry: '12/28'
+        walletBalance: 0
       };
       await setDoc(userDocRef, defaultUser);
-
-      // Seed shipments
-      const defaultShipment: Shipment = {
-        userId: uid,
-        trackingNumber: 'IRA-99201-XQ',
-        status: 'وصلت مطار بغداد',
-        estimatedDelivery: '24 أكتوبر 2023',
-        expectedArrivalDate: '26 أكتوبر 2023',
-        weight: '2.45 كجم',
-        items: '3 قطع',
-        service: 'شحن جوي سريع',
-        origin: 'Shein (China)',
-        currentLocation: 'منطقة الشحن بمطار بغداد الدولي',
-        journey: [
-          { title: "وصلت إلى بغداد (BGW Hub)", description: "التخليص الجمركي جاري حالياً في مطار بغداد الدولي.", time: "اليوم، 10:45 ص", location: "بغداد، العراق", icon: "MapPin", active: true },
-          { title: "غادرت مركز دبي (UAE Hub)", description: "الشحنة غادرت مركز التوزيع الإقليمي متجهة إلى العراق.", time: "أمس، 11:20 م", location: "دبي، الإمارات", icon: "Plane", active: false },
-          { title: "وصلت مركز الكويت (KUW Hub)", description: "نقطة توقف للشحنات البحرية والجوية القادمة من شرق آسيا.", time: "21 أكتوبر، 04:00 م", location: "الكويت", icon: "GitMerge", active: false },
-          { title: "غادرت منشأة غوانزو (Guangzhou)", description: "تم فرز الطرود وتجهيزها للشحن الدولي.", time: "20 أكتوبر، 09:15 ص", location: "غوانزو، الصين", icon: "Box", active: false },
-          { title: "تم تأكيد الطلب", description: "البائع أكد طلبك ويقوم بتجهيز الطرد.", time: "18 أكتوبر، 02:30 م", location: "شينزين، الصين", icon: "ShoppingBag", active: false }
-        ]
-      };
-      await setDoc(doc(db, 'shipments', `${uid}_shipment_1`), defaultShipment);
-
-      // Seed invoices
-      const defaultInvoices: Invoice[] = [
-        { userId: uid, invoiceId: 'INV-7829', store: 'Shein', order_id: 'SH9021883', date: '2023-10-24', amount: '125,000 د.ع', status: 'Paid', shippingStatus: 'وصلت مطار بغداد' },
-        { userId: uid, invoiceId: 'INV-7830', store: 'AliExpress', order_id: 'AX4429910', date: '2023-10-22', amount: '45,500 د.ع', status: 'Pending', shippingStatus: 'قيد المعالجة في المستودع' },
-        { userId: uid, invoiceId: 'INV-7831', store: 'Amazon AE', order_id: 'AMZ-33210-9', date: '2023-10-15', amount: '210,000 د.ع', status: 'Paid', shippingStatus: 'تم التسليم لشركة التوصيل' },
-        { userId: uid, invoiceId: 'INV-7832', store: 'Trendyol', order_id: 'TR-772188', date: '2023-10-05', amount: '89,000 د.ع', status: 'Paid', shippingStatus: 'تم التسليم للزبون' }
-      ];
-      for (const inv of defaultInvoices) {
-        await setDoc(doc(db, 'invoices', `${uid}_${inv.invoiceId}`), inv);
-      }
-
-      // Seed notifications
-      const defaultNotifications: NotificationDetail[] = [
-        {
-          userId: uid,
-          notificationId: 'notif_3',
-          type: 'invoice',
-          title: 'تأكيد الدفع',
-          content: 'تم استلام مبلغ الطلب #IR-9023. شكراً لثقتكِ بنا.',
-          time: '٢ س',
-          icon: 'CheckCircle',
-          read: true
-        },
-        {
-          userId: uid,
-          notificationId: 'notif_4',
-          type: 'offer',
-          title: 'تخفيضات حصرية',
-          content: 'خصومات تصل إلى ٣٠٪ على تشكيلة الخريف الجديدة!',
-          time: 'أمس',
-          icon: 'Sparkles',
-          read: true
-        }
-      ];
-      for (const notif of defaultNotifications) {
-        await setDoc(doc(db, 'notifications', `${uid}_${notif.notificationId}`), notif);
-      }
     }
   } catch (error) {
-    console.warn("Seeding initial data skipped or restricted (using highly-resilient offline local storage fallback):", error);
+    console.warn("Seeding initial data skipped or restricted:", error);
   }
 }
 
@@ -388,7 +291,7 @@ export interface DiagnosticResult {
 
 export async function runFirestoreDiagnosticTest(): Promise<DiagnosticResult> {
   const result: DiagnosticResult = {
-    step1Auth: { status: 'pending', message: 'جاري تسجيل الدخول المجهول...' },
+    step1Auth: { status: 'pending', message: 'جاري التحقق من الحساب النشط...' },
     step2Create: { status: 'pending', message: 'انتظار اكتمال تسجيل الدخول...' },
     step3Read: { status: 'pending', message: 'انتظار إنشاء المستند...' },
     overallSuccess: false,
@@ -396,13 +299,16 @@ export async function runFirestoreDiagnosticTest(): Promise<DiagnosticResult> {
   };
 
   try {
-    // 1. Authenticate anonymously
-    console.log("Diagnostic: Initiating anonymous sign in...");
-    const credential = await signInAnonymously(auth);
-    const uid = credential.user.uid;
+    // 1. Authenticate check
+    console.log("Diagnostic: Checking active authentication...");
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("لا يوجد مستخدم مسجل حالياً لإجراء الفحص.");
+    }
+    const uid = currentUser.uid;
     result.step1Auth = {
       status: 'success',
-      message: 'تم تسجيل الدخول بنجاح كمستخدم مجهول.',
+      message: 'تم التحقق من الحساب النشط بنجاح.',
       uid
     };
 

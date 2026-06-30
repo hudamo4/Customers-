@@ -6,7 +6,9 @@ import TrackingView from './components/TrackingView';
 import InvoiceView from './components/InvoiceView';
 import ProfileView from './components/ProfileView';
 import NotificationsView from './components/NotificationsView';
+import CustomerPortal from './components/CustomerPortal';
 import ManagerPortal from './components/manager/ManagerPortal';
+import AdminLockScreen from './components/manager/AdminLockScreen';
 import HadooshaAssistant from './components/HadooshaAssistant';
 import LoginModal from './components/LoginModal';
 import IntroSplashScreen from './components/IntroSplashScreen';
@@ -46,7 +48,12 @@ function AppContent() {
     // Unread notifications are still logged and accessible via the notifications view.
   }, [notifications, loading, initialLoaded]);
 
+  const [isManagerUnlocked, setIsManagerUnlocked] = React.useState<boolean>(false);
+
   const handleSwitchMode = (mode: 'customer' | 'manager') => {
+    if (mode === 'customer') {
+      setIsManagerUnlocked(false);
+    }
     setAppMode(mode);
   };
 
@@ -132,111 +139,27 @@ function AppContent() {
 
         {/* Adjust top spacing on desktop to account for telephone status bar */}
         <div className="flex-1 flex flex-col relative h-full md:pt-7 overflow-hidden">
-          
-          {/* 2. MAIN HEADER - Sticky at the top of the phone screen */}
-          {appMode === 'customer' && (
-            <header className="absolute top-0 left-0 right-0 h-16 border-b border-pink-100/30 flex items-center justify-between px-4 bg-[#fffcfb]/85 backdrop-blur-xl z-20 shadow-xs">
-              <div className="flex items-center gap-1.5">
-                {activeTab !== 'dashboard' && (
-                  <button
-                    onClick={() => { triggerLightHaptic(); setActiveTab('dashboard'); }}
-                    className="w-8 h-8 flex items-center justify-center text-pink-700 hover:bg-pink-50 rounded-full transition-transform active:scale-95"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                )}
-                <div className="text-right">
-                  {activeTab === 'dashboard' ? (
-                    <>
-                      <span className="text-[8.5px] font-bold text-pink-600 block uppercase tracking-wider">لوحة التجربة الفورية</span>
-                      <h1 className="text-xs sm:text-sm font-black text-pink-950 truncate max-w-[170px]">{getHeaderTitle()}</h1>
-                    </>
-                  ) : (
-                    <h1 className="font-black text-xs sm:text-sm text-pink-950 truncate max-w-[170px]">{getHeaderTitle()}</h1>
-                  )}
-                </div>
-              </div>
-
-              {/* Live status indicators & Avatar action controls */}
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-mono font-bold text-pink-950/70 bg-pink-100/30 px-2 py-0.5 rounded-full">{liveTime}</span>
-                <button
-                  onClick={() => { triggerLightHaptic(); setActiveTab('profile'); }}
-                  className="w-8 h-8 rounded-full overflow-hidden border-2 border-pink-100 shadow-xs hover:border-pink-300 transition-all active:scale-95 flex items-center justify-center bg-white"
-                >
-                  <img
-                    alt="User Profile"
-                    className="w-full h-full object-cover"
-                    src={profile?.avatar || DEFAULT_AVATAR}
-                    referrerPolicy="no-referrer"
-                  />
-                </button>
-              </div>
-            </header>
-          )}
-
-          {/* 3. CORE CONTENT AREA - Scrollable inside the telephone mockup */}
-          <main className={`flex-1 overflow-y-auto no-scrollbar relative bg-[#fffcfb] ${appMode === 'customer' ? 'pt-16 pb-18 px-4' : 'h-full'}`}>
-            {appMode === 'manager' ? (
+          {appMode === 'manager' ? (
+            isManagerUnlocked ? (
               <ManagerPortal onSwitchToCustomerMode={() => handleSwitchMode('customer')} />
             ) : (
-              renderActiveView()
-            )}
-          </main>
-
-          {/* 4. BOTTOM NAVIGATION TAB BAR */}
-          {appMode === 'customer' && (
-            <nav className="absolute bottom-0 left-0 right-0 h-18 bg-white/95 backdrop-blur-md border-t border-pink-100/20 shadow-[0_-8px_30px_rgba(219,39,119,0.06)] flex justify-around items-center px-1 z-40">
-              <button
-                onClick={() => { triggerLightHaptic(); setActiveTab('dashboard'); }}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-                  activeTab === 'dashboard' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-                }`}
-              >
-                <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'dashboard' ? 'bg-pink-50' : ''}`}>
-                  <Home className="w-4.5 h-4.5" />
-                </div>
-                <span className="text-[9px] font-bold">الرئيسية</span>
-              </button>
-
-              <button
-                onClick={() => { triggerLightHaptic(); setActiveTab('tracking'); }}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-                  activeTab === 'tracking' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-                }`}
-              >
-                <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'tracking' ? 'bg-pink-50' : ''}`}>
-                  <Truck className="w-4.5 h-4.5" />
-                </div>
-                <span className="text-[9px] font-bold">الشحنات</span>
-              </button>
-
-              <button
-                onClick={() => { triggerLightHaptic(); setActiveTab('invoices'); }}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-                  activeTab === 'invoices' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-                }`}
-              >
-                <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'invoices' ? 'bg-pink-50' : ''}`}>
-                  <Receipt className="w-4.5 h-4.5" />
-                </div>
-                <span className="text-[9px] font-bold">الفواتير</span>
-              </button>
-
-              <button
-                onClick={() => { triggerLightHaptic(); setActiveTab('profile'); }}
-                className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-                  activeTab === 'profile' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-                }`}
-              >
-                <div className={`p-1 px-3.5 rounded-full transition-all ${activeTab === 'profile' ? 'bg-pink-50' : ''}`}>
-                  <User className="w-4.5 h-4.5" />
-                </div>
-                <span className="text-[9px] font-bold">حسابي</span>
-              </button>
-            </nav>
+              <AdminLockScreen 
+                onUnlock={() => setIsManagerUnlocked(true)} 
+                onCancel={() => handleSwitchMode('customer')} 
+              />
+            )
+          ) : (
+            <CustomerPortal 
+              onSwitchToAdmin={() => handleSwitchMode('manager')} 
+              showAdminPasscode={() => {
+                if (profile?.role === 'admin') {
+                  handleSwitchMode('manager');
+                } else {
+                  setShowLoginModal(true);
+                }
+              }} 
+            />
           )}
-
         </div>
 
       </div>

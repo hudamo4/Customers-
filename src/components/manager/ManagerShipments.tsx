@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Shipment } from '../../types';
+import { db } from '../../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { 
   Plus, 
   Search, 
@@ -18,10 +20,58 @@ import {
 } from 'lucide-react';
 
 export default function ManagerShipments() {
-  const { shipments, setSelectedShipmentId, deleteShipment, updateShipmentStatus, addShipment } = useApp();
+  const { shipments, setSelectedShipmentId, deleteShipment, clearAllShipments, updateShipmentStatus, addShipment } = useApp();
   const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  const handleClearAllShipments = async () => {
+    if (confirm('⚠️ تحذير خطير: هل أنتِ متأكدة فعلاً من رغبتكِ في مسح كافة الشحنات من التطبيق وقاعدة البيانات بشكل نهائي ودون رجعة؟')) {
+      if (confirm('تأكيد أخير: لن تتمكني من استعادة أي شحنة بعد المسح. هل تريدين الاستمرار؟')) {
+        try {
+          await clearAllShipments();
+          alert('تم مسح كافة الشحنات بنجاح 🌸');
+        } catch (err) {
+          console.error("Failed to clear all shipments:", err);
+          alert('حدث خطأ أثناء مسح الشحنات.');
+        }
+      }
+    }
+  };
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   
+  // Real users tracking state
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('local_user');
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snap) => {
+      const list: any[] = [];
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.role !== 'admin' && data.uid !== 'Admin_001') {
+          list.push({ id: docSnap.id, name: data.name || 'زبونة مجهولة', customerId: data.customerId || docSnap.id });
+        }
+      });
+      setUsers(list);
+    }, (err) => {
+      console.warn("Could not fetch real users for shipments:", err);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const checkPrefilled = () => {
+      const prefilled = (window as any).prefilledCustomerForAction;
+      if (prefilled) {
+        setSelectedUserId(prefilled.uid || 'local_user');
+        setShowAddModal(true);
+        delete (window as any).prefilledCustomerForAction;
+      }
+    };
+    checkPrefilled();
+    const interval = setInterval(checkPrefilled, 200);
+    return () => clearInterval(interval);
+  }, []);
+
   // Modal state
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [newTracking, setNewTracking] = useState<string>('');
@@ -33,13 +83,37 @@ export default function ManagerShipments() {
   const [newEstimated, setNewEstimated] = useState<string>('24 أكتوبر 2023');
   const [isAdding, setIsAdding] = useState<boolean>(false);
 
+  // Transit 3D simulation parameters
+  const [newTransitType, setNewTransitType] = useState<'air' | 'sea'>('air');
+  const [newTransitSpeed, setNewTransitSpeed] = useState<number>(850);
+  const [newTransitAltitude, setNewTransitAltitude] = useState<number>(10500);
+  const [newSimulatedProgress, setNewSimulatedProgress] = useState<number>(15);
+
   // Status Change State
   const [editingShipment, setEditingShipment] = useState<Shipment | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
   const [showStatusConfirm, setShowStatusConfirm] = useState<boolean>(false);
 
+  // Editing transit parameters for 3D simulator
+  const [editTransitType, setEditTransitType] = useState<'air' | 'sea'>('air');
+  const [editTransitSpeed, setEditTransitSpeed] = useState<number>(850);
+  const [editTransitAltitude, setEditTransitAltitude] = useState<number>(10500);
+  const [editSimulatedProgress, setEditSimulatedProgress] = useState<number>(15);
+
   // Delete Confirmation State
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+
+  // Lock body scroll when modals are active
+  useEffect(() => {
+    if (showAddModal || editingShipment || showStatusConfirm || deleteTargetId) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showAddModal, editingShipment, showStatusConfirm, deleteTargetId]);
 
   // Colored status styles helper
   const getStatusStyles = (status: string) => {
@@ -94,7 +168,7 @@ export default function ManagerShipments() {
     const generatedId = `shipment_${Date.now()}`;
     const newShipObj: Shipment = {
       id: generatedId,
-      userId: 'local_user', // Associated with main user for immediate display
+      userId: selectedUserId, // Associated with selected real user!
       trackingNumber: newTracking,
       status: 'تم تأكيد استلام الطرد في غوانزو',
       estimatedDelivery: newEstimated,
@@ -113,7 +187,11 @@ export default function ManagerShipments() {
           icon: 'Box',
           active: true
         }
-      ]
+      ],
+      transitType: newTransitType,
+      transitSpeed: newTransitSpeed,
+      transitAltitude: newTransitAltitude,
+      simulatedProgress: newSimulatedProgress
     };
 
     await addShipment(newShipObj);
@@ -139,7 +217,12 @@ export default function ManagerShipments() {
 
   const handleConfirmUpdateStatus = async () => {
     if (!editingShipment || !newStatus || !editingShipment.id) return;
-    await updateShipmentStatus(editingShipment.id, newStatus);
+    await updateShipmentStatus(editingShipment.id, newStatus, {
+      transitType: editTransitType,
+      transitSpeed: editTransitSpeed,
+      transitAltitude: editTransitAltitude,
+      simulatedProgress: editSimulatedProgress
+    });
     setEditingShipment(null);
     setShowStatusConfirm(false);
   };
@@ -162,13 +245,22 @@ export default function ManagerShipments() {
       <div className="bg-white/95 backdrop-blur-xl border border-pink-100 p-5 rounded-3xl shadow-sm space-y-4">
         <div className="flex justify-between items-center" dir="rtl">
           <h3 className="font-black text-sm text-gray-800">تصفح وإدارة الشحنات الجارية</h3>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1 bg-gradient-to-r from-pink-700 to-rose-600 text-white px-3.5 py-2 rounded-2xl text-[10px] font-black hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>إضافة شحنة</span>
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleClearAllShipments}
+              className="flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-xl text-[9px] font-black hover:bg-red-100 active:scale-95 transition-all cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>مسح كل الشحنات 🗑️</span>
+            </button>
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1 bg-gradient-to-r from-pink-700 to-rose-600 text-white px-3.5 py-2 rounded-2xl text-[10px] font-black hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>إضافة شحنة</span>
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -265,6 +357,10 @@ export default function ManagerShipments() {
                 onClick={() => {
                   setEditingShipment(ship);
                   setNewStatus(ship.status);
+                  setEditTransitType(ship.transitType || 'air');
+                  setEditTransitSpeed(ship.transitSpeed || (ship.transitType === 'sea' ? 35 : 850));
+                  setEditTransitAltitude(ship.transitAltitude || (ship.transitType === 'sea' ? 0 : 10500));
+                  setEditSimulatedProgress(ship.simulatedProgress || 15);
                 }}
                 className="flex-1 bg-pink-50/50 hover:bg-pink-100/50 text-pink-800 py-2.5 rounded-xl text-[10px] font-black transition-all flex items-center justify-center gap-1 cursor-pointer"
               >
@@ -291,8 +387,12 @@ export default function ManagerShipments() {
 
       {/* Add Shipment Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl space-y-4 text-right border border-pink-100" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAddModal(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl space-y-4 text-right border border-pink-100 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center pb-3 border-b border-pink-50">
               <h3 className="font-black text-gray-800 text-sm">إضافة شحنة صينية جديدة</h3>
               <button 
@@ -304,6 +404,20 @@ export default function ManagerShipments() {
             </div>
 
             <form onSubmit={handleCreateShipment} className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-500 mb-1">الزبونة المستهدفة</label>
+                <select
+                  value={selectedUserId}
+                  onChange={(e) => setSelectedUserId(e.target.value)}
+                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                >
+                  <option value="local_user">الزبونة الافتراضية (أمنة العراق)</option>
+                  {users.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} (@{u.customerId})</option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-[11px] font-bold text-gray-500 mb-1">رقم التتبع (Tracking Number)</label>
                 <input 
@@ -364,6 +478,62 @@ export default function ManagerShipments() {
                 </div>
               </div>
 
+              {/* 3D Simulation Controls */}
+              <div className="border-t border-pink-100/50 pt-3.5 space-y-2.5">
+                <span className="text-[10px] font-black text-pink-700 block">🎮 إعدادات المحاكاة ثلاثية الأبعاد (3D Map Sim)</span>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">واسطة النقل</label>
+                    <select
+                      value={newTransitType}
+                      onChange={(e) => {
+                        const val = e.target.value as 'air' | 'sea';
+                        setNewTransitType(val);
+                        setNewTransitSpeed(val === 'sea' ? 35 : 850);
+                        setNewTransitAltitude(val === 'sea' ? 0 : 10500);
+                      }}
+                      className="w-full bg-pink-50/20 border border-pink-100 text-[11px] px-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                    >
+                      <option value="air">✈️ طائرة (Air)</option>
+                      <option value="sea">🚢 سفينة شحن (Sea)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">تقدم الرحلة ({newSimulatedProgress}%)</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={newSimulatedProgress}
+                      onChange={(e) => setNewSimulatedProgress(Number(e.target.value))}
+                      className="w-full accent-pink-600 h-1.5 bg-gray-200 rounded-lg cursor-pointer mt-2"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">السرعة (كم/ساعة)</label>
+                    <input
+                      type="number"
+                      value={newTransitSpeed}
+                      onChange={(e) => setNewTransitSpeed(Number(e.target.value))}
+                      className="w-full bg-pink-50/20 border border-pink-100 text-[11px] px-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">الارتفاع (متر / عالي)</label>
+                    <input
+                      type="number"
+                      value={newTransitAltitude}
+                      onChange={(e) => setNewTransitAltitude(Number(e.target.value))}
+                      className="w-full bg-pink-50/20 border border-pink-100 text-[11px] px-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button 
                 type="submit"
                 disabled={isAdding}
@@ -378,8 +548,12 @@ export default function ManagerShipments() {
 
       {/* Edit Status Modal */}
       {editingShipment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl space-y-4 text-right border border-pink-100" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setEditingShipment(null)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl space-y-4 text-right border border-pink-100 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center pb-3 border-b border-pink-50">
               <h3 className="font-black text-gray-800 text-sm">تحديث حالة الشحنة</h3>
               <button 
@@ -411,6 +585,62 @@ export default function ManagerShipments() {
                 </select>
               </div>
 
+              {/* 3D Simulation Controls for Editing */}
+              <div className="border-t border-pink-100/50 pt-3.5 space-y-2.5">
+                <span className="text-[10px] font-black text-pink-700 block">🎮 تحديث محاكاة الـ 3D الجارية للتتبع</span>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">واسطة النقل</label>
+                    <select
+                      value={editTransitType}
+                      onChange={(e) => {
+                        const val = e.target.value as 'air' | 'sea';
+                        setEditTransitType(val);
+                        setEditTransitSpeed(val === 'sea' ? 35 : 850);
+                        setEditTransitAltitude(val === 'sea' ? 0 : 10500);
+                      }}
+                      className="w-full bg-pink-50/20 border border-pink-100 text-[11px] px-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                    >
+                      <option value="air">✈️ طائرة (Air)</option>
+                      <option value="sea">🚢 سفينة شحن (Sea)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">التقدم المحاكي ({editSimulatedProgress}%)</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={editSimulatedProgress}
+                      onChange={(e) => setEditSimulatedProgress(Number(e.target.value))}
+                      className="w-full accent-pink-600 h-1.5 bg-gray-200 rounded-lg cursor-pointer mt-2"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">السرعة (كم/ساعة)</label>
+                    <input
+                      type="number"
+                      value={editTransitSpeed}
+                      onChange={(e) => setEditTransitSpeed(Number(e.target.value))}
+                      className="w-full bg-pink-50/20 border border-pink-100 text-[11px] px-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-gray-400 mb-1">الارتفاع (متر)</label>
+                    <input
+                      type="number"
+                      value={editTransitAltitude}
+                      onChange={(e) => setEditTransitAltitude(Number(e.target.value))}
+                      className="w-full bg-pink-50/20 border border-pink-100 text-[11px] px-3 py-2 rounded-xl focus:outline-none focus:ring-1 focus:ring-pink-300 font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
               <button 
                 type="submit"
                 className="w-full bg-pink-700 hover:bg-pink-850 text-white font-black text-xs py-3 rounded-2xl active:scale-95 transition-all cursor-pointer shadow-sm"
@@ -424,8 +654,12 @@ export default function ManagerShipments() {
 
       {/* Status Update Confirmation Modal */}
       {showStatusConfirm && editingShipment && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-pink-100" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowStatusConfirm(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-pink-100 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 bg-pink-50 text-pink-700 rounded-full flex items-center justify-center mx-auto border border-pink-100/50">
               <AlertTriangle className="w-7 h-7" />
             </div>
@@ -461,8 +695,12 @@ export default function ManagerShipments() {
 
       {/* Delete Confirmation Alert */}
       {deleteTargetId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setDeleteTargetId(null)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center space-y-4 border border-red-50 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>

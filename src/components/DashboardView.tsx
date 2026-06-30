@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { motion } from 'motion/react';
 import IramoProductsList from './IramoProductsList';
+import { SpinWheelModal } from './ProfileView';
 import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 import { 
   Award, 
@@ -37,15 +38,33 @@ import {
   ShieldCheck,
   LogIn,
   Sun,
-  Moon
+  Moon,
+  Plane,
+  Gift,
+  ArrowUpRight,
+  X
 } from 'lucide-react';
 
 export default function DashboardView() {
-  const { profile, shipments, invoices, notifications, setActiveTab, setSelectedShipmentId, customizations, isLoggedIn, setShowLoginModal } = useApp();
+  const { profile, shipments, invoices, notifications, setActiveTab, setSelectedShipmentId, customizations, isLoggedIn, setShowLoginModal, redeemPoints, updateProfile, markAllNotificationsAsRead, markNotificationAsRead } = useApp();
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [rechargeModal, setRechargeModal] = useState<boolean>(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [copyCalcSuccess, setCopyCalcSuccess] = useState<boolean>(false);
+  const [showSpinWheel, setShowSpinWheel] = useState<boolean>(false);
+  const [showNotifModal, setShowNotifModal] = useState<boolean>(false);
+
+  // Lock body scroll when modals are active
+  useEffect(() => {
+    if (rechargeModal || showNotifModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [rechargeModal, showNotifModal]);
 
   // Interactive Welcome Card States
   const [userMood, setUserMood] = useState<string | null>(null);
@@ -325,22 +344,41 @@ export default function DashboardView() {
                   سعداء بتواجدكِ اليوم! قمنا بتحديث مستجدات شحناتكِ وفواتيركِ تلقائياً لتكون جاهزة للمتابعة الفورية.
                 </p>
               </div>
-              {profile?.avatar ? (
-                <div className="relative shrink-0">
-                  <img
-                    src={profile.avatar}
-                    alt={profile.name}
-                    className="w-14 h-14 rounded-full border-2 border-pink-200 object-cover shadow-sm"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
-                </div>
-              ) : (
-                <div className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold shrink-0 shadow-md">
-                  <span>{(profile?.name || 'هـ')[0]}</span>
-                  <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
-                </div>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Notification Bell with Badge */}
+                <button
+                  onClick={() => {
+                    triggerMediumHaptic();
+                    setShowNotifModal(true);
+                  }}
+                  className="relative w-11 h-11 rounded-full bg-white hover:bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-700 shadow-sm transition-all active:scale-95 cursor-pointer group"
+                  title="مركز الإشعارات"
+                >
+                  <Bell className="w-5 h-5 text-pink-600" />
+                  {notifications.filter(n => !n.read).length > 0 && (
+                    <span className="absolute -top-1 -left-1 w-5 h-5 bg-gradient-to-r from-red-600 to-rose-600 rounded-full text-[9px] font-black text-white flex items-center justify-center shadow-md border border-white">
+                      {notifications.filter(n => !n.read).length}
+                    </span>
+                  )}
+                </button>
+
+                {profile?.avatar ? (
+                  <div className="relative">
+                    <img
+                      src={profile.avatar}
+                      alt={profile.name}
+                      className="w-14 h-14 rounded-full border-2 border-pink-200 object-cover shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
+                  </div>
+                ) : (
+                  <div className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-pink-400 to-pink-600 flex items-center justify-center text-white font-bold shrink-0 shadow-md">
+                    <span>{(profile?.name || 'هـ')[0]}</span>
+                    <span className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full animate-pulse" />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Interactive Mood Picker */}
@@ -573,14 +611,43 @@ export default function DashboardView() {
                 </button>
               </div>
             </div>
+
+            {/* Spin Wheel Promo Card */}
+            {customizations.showLoyalty && (
+              <div className="bg-gradient-to-tr from-rose-500 via-pink-500 to-rose-600 text-white p-5 rounded-[2.25rem] shadow-sm border border-white/20 select-none animate-fade-in flex items-center justify-between relative overflow-hidden">
+                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+                <div className="space-y-1.5 relative z-10 max-w-[65%]">
+                  <span className="text-[8px] font-black bg-white/20 px-2.5 py-0.5 rounded-full text-white uppercase tracking-wider">عجلة الحظ والهدايا اليومية 🎡</span>
+                  <h3 className="font-extrabold text-xs text-white">العبي واربحي جوائز مميزة! 🎁</h3>
+                  <p className="text-[10px] text-pink-50/90 font-bold leading-relaxed">
+                    نقاط ولاء ورصيد مجاني في محفظتكِ بدوران يومي مجاني بكل دلال! 💕
+                  </p>
+                  <button
+                    onClick={() => {
+                      triggerMediumHaptic();
+                      setShowSpinWheel(true);
+                    }}
+                    className="mt-2 bg-white hover:bg-pink-50 text-rose-600 text-[10px] font-black px-4 py-2 rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>دوري العجلة الآن 🎡✨</span>
+                  </button>
+                </div>
+                <div className="w-16 h-16 bg-white/15 rounded-full flex items-center justify-center border border-white/25 shadow-lg relative animate-spin-slow">
+                  <Compass className="w-8 h-8 text-white" />
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
 
       {/* Recharge Modal Popup Simulation */}
       {rechargeModal && (
-        <div className="fixed inset-0 bg-black/55 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-sm p-6 text-right space-y-4 shadow-2xl relative animate-scale-up">
+        <div className="fixed inset-0 z-[99998] bg-black/55 backdrop-blur-md animate-fade-in" onClick={() => setRechargeModal(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-[2.5rem] w-full max-w-sm p-6 text-right space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="font-black text-base text-pink-950">شحن المحفظة فورياً 💳</h3>
             <p className="text-xs text-gray-500 font-bold leading-relaxed">
               تصفحي خيارات شحن المحفظة السريعة لإضافة رصيد فوري لتسديد الفواتير والتوصيل الداخلي تلقائياً.
@@ -810,6 +877,53 @@ export default function DashboardView() {
         </section>
       )}
 
+      {/* WHAT WE OFFER SECTION */}
+      {customizations.offeredServices && customizations.offeredServices.length > 0 && (
+        <section className="space-y-4 text-right">
+          <div className="flex justify-between items-center px-1">
+            <h3 className="font-extrabold text-base text-pink-950 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-rose-500 animate-pulse" /> خدماتنا المميزة وماذا نقدم لجمالكِ والدلال 🌸
+            </h3>
+            <span className="text-[9px] bg-pink-100 text-pink-800 font-black px-3 py-1 rounded-full">كل السرعة والأمان ✨</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {customizations.offeredServices.map((srv: any) => (
+              <div 
+                key={srv.id}
+                className="bg-white/95 backdrop-blur-xl border border-pink-100/60 p-5 rounded-[2.25rem] shadow-sm flex items-start gap-4 hover:border-pink-300 transition-all group relative overflow-hidden"
+              >
+                <div className="absolute top-0 right-0 w-24 h-24 bg-pink-50/50 rounded-full blur-2xl -mr-6 -mt-6"></div>
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-pink-400 to-rose-500 flex items-center justify-center text-white shadow-md shadow-pink-500/10 shrink-0 relative z-10 group-hover:scale-110 transition-transform">
+                  {srv.iconName === 'Plane' && <Plane className="w-4 h-4" />}
+                  {srv.iconName === 'ShoppingBag' && <ShoppingBag className="w-4 h-4" />}
+                  {srv.iconName === 'Truck' && <Truck className="w-4 h-4" />}
+                  {srv.iconName === 'Compass' && <Compass className="w-4 h-4" />}
+                  {srv.iconName === 'Sparkles' && <Sparkles className="w-4 h-4" />}
+                  {srv.iconName === 'Gift' && <Gift className="w-4 h-4" />}
+                  {srv.iconName === 'Heart' && <Heart className="w-4 h-4" />}
+                  {srv.iconName === 'Smile' && <Smile className="w-4 h-4" />}
+                  {srv.iconName === 'ShoppingCart' && <ShoppingCart className="w-4 h-4" />}
+                  {srv.iconName === 'Award' && <Award className="w-4 h-4" />}
+                  {!['Plane', 'ShoppingBag', 'Truck', 'Compass', 'Sparkles', 'Gift', 'Heart', 'Smile', 'ShoppingCart', 'Award'].includes(srv.iconName) && (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                </div>
+                <div className="space-y-1 text-right relative z-10">
+                  <h4 className="font-extrabold text-xs text-pink-950 flex items-center gap-1 group-hover:text-pink-700 transition-colors">
+                    <span>{srv.title}</span>
+                    <ArrowUpRight className="w-3 h-3 text-pink-400 opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </h4>
+                  <p className="text-[11px] text-gray-500 font-medium leading-relaxed">
+                    {srv.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Interactive Shipping Cost Calculator */}
       <section className="bg-white border border-pink-100 rounded-3xl p-6 shadow-xs space-y-5 text-right">
         <div className="flex items-center gap-2 border-b border-pink-50 pb-3">
@@ -998,6 +1112,173 @@ export default function DashboardView() {
         </div>
         <div className="absolute -bottom-4 -right-4 w-24 h-24 bg-pink-100/20 rounded-full blur-2xl"></div>
       </section>
+
+      {/* Spin Wheel Modal */}
+      {showSpinWheel && (
+        <SpinWheelModal
+          onClose={() => setShowSpinWheel(false)}
+          points={profile?.points || 0}
+          onWin={async (amount, type) => {
+            if (profile) {
+              const newBalance = type === 'balance' ? ((profile.walletBalance ?? 250000) + amount) : (profile.walletBalance ?? 250000);
+              await updateProfile(
+                profile.name,
+                profile.phone,
+                profile.city,
+                newBalance,
+                profile.savedCardNumber,
+                profile.savedCardHolder,
+                profile.savedCardExpiry
+              );
+              if (type === 'points') {
+                await redeemPoints(-amount); // adding points is opposite of redeeming
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* Elegant sliding Notification Center Drawer */}
+      {showNotifModal && (
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl" onClick={() => setShowNotifModal(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] flex flex-col shadow-2xl text-right max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="p-6 border-b border-pink-50 bg-gradient-to-l from-pink-50/50 to-white flex justify-between items-center flex-row-reverse">
+              <button 
+                onClick={() => {
+                  triggerMediumHaptic();
+                  setShowNotifModal(false);
+                }}
+                className="w-8 h-8 rounded-full hover:bg-pink-50 flex items-center justify-center cursor-pointer text-gray-500 transition-all active:scale-90"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-pink-100 flex items-center justify-center text-pink-700">
+                  <Bell className="w-4 h-4 animate-bounce" />
+                </div>
+                <h3 className="font-black text-gray-800 text-sm">إشعاراتكِ الحالية يا جميلتي ✨</h3>
+              </div>
+            </div>
+
+            {/* Actions / Sub-header */}
+            {isLoggedIn && notifications.length > 0 && (
+              <div className="px-6 py-3 bg-pink-50/30 border-b border-pink-100/50 flex justify-between items-center text-xs font-bold text-pink-900">
+                <span>لديكِ {notifications.filter(n => !n.read).length} إشعارات غير مقروءة 💌</span>
+                <button
+                  onClick={async () => {
+                    triggerSuccessHaptic();
+                    await markAllNotificationsAsRead();
+                  }}
+                  className="text-pink-700 hover:text-pink-900 underline text-[11px] font-black cursor-pointer"
+                >
+                  تحديد الكل كمقروء ✓
+                </button>
+              </div>
+            )}
+
+            {/* List Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+              {!isLoggedIn ? (
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-4">
+                  <div className="w-16 h-16 bg-pink-50 rounded-full flex items-center justify-center text-pink-700">
+                    <ShieldCheck className="w-8 h-8" />
+                  </div>
+                  <h4 className="font-extrabold text-sm text-pink-950">مساحة خاصة بإشعاراتكِ يا عزيزتي 💖</h4>
+                  <p className="text-[11px] text-gray-400 font-bold leading-relaxed">
+                    يرجى تسجيل الدخول لعرض تفاصيل شحناتكِ وفواتيركِ وتحديثات عروضكِ المخصصة تلقائياً.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowNotifModal(false);
+                      setShowLoginModal(true);
+                    }}
+                    className="bg-pink-700 hover:bg-pink-850 text-white font-black text-xs px-6 py-2.5 rounded-xl shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    تسجيل الدخول الآن ✨
+                  </button>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center p-8 text-center space-y-3">
+                  <div className="w-16 h-16 bg-pink-50 rounded-full flex items-center justify-center text-pink-300">
+                    <Smile className="w-8 h-8" />
+                  </div>
+                  <h4 className="font-extrabold text-sm text-pink-950">صندوق إشعاراتكِ فارغ يا زهرتي 🌸</h4>
+                  <p className="text-[11px] text-gray-400 font-bold leading-relaxed">
+                    لا توجد إشعارات مسجلة حالياً. سنقوم بإعلامكِ هنا فور حدوث أي تحديث لشحناتكِ أو فواتيركِ بكل دلال!
+                  </p>
+                </div>
+              ) : (
+                notifications.map((notif) => {
+                  const isRead = notif.read;
+                  return (
+                    <div
+                      key={notif.id || notif.notificationId}
+                      onClick={async () => {
+                        triggerLightHaptic();
+                        if (!isRead && notif.id) {
+                          await markNotificationAsRead(notif.id);
+                        }
+                      }}
+                      className={`p-4 rounded-3xl border transition-all text-right cursor-pointer flex gap-3 items-start ${
+                        isRead 
+                          ? 'bg-gray-50/50 border-gray-100 opacity-75' 
+                          : 'bg-pink-50/30 border-pink-100 shadow-xs relative overflow-hidden'
+                      }`}
+                    >
+                      {/* Unread dot indicator */}
+                      {!isRead && (
+                        <span className="absolute top-3 right-3 w-2 h-2 rounded-full bg-pink-600 animate-pulse" />
+                      )}
+
+                      {/* Icon */}
+                      <div className={`w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center ${
+                        notif.type === 'shipment' 
+                          ? 'bg-pink-100 text-pink-700' 
+                          : notif.type === 'invoice'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}>
+                        {notif.type === 'shipment' ? (
+                          <Plane className="w-5 h-5" />
+                        ) : notif.type === 'invoice' ? (
+                          <Receipt className="w-5 h-5" />
+                        ) : (
+                          <Gift className="w-5 h-5" />
+                        )}
+                      </div>
+
+                      {/* Content details */}
+                      <div className="space-y-1 flex-1">
+                        <div className="flex justify-between items-baseline gap-2">
+                          <h4 className={`text-xs font-black text-gray-800 ${!isRead ? 'pr-2' : ''}`}>
+                            {notif.title}
+                          </h4>
+                          <span className="text-[9px] text-gray-400 font-bold shrink-0">{notif.time || 'الآن'}</span>
+                        </div>
+                        <p className="text-[11px] text-gray-500 leading-relaxed font-semibold">
+                          {notif.content}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer mascot note */}
+            <div className="p-4 border-t border-pink-50 bg-pink-50/20 text-center">
+              <p className="text-[10px] text-pink-700 font-semibold italic">
+                نحن في IRAMO نسعى دائماً لجعلكِ الأولى في متابعة طرودكِ بكل سهولة ودلال 💕
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

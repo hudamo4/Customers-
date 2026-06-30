@@ -213,7 +213,7 @@ async function startServer() {
   // API Route for Gemini
   app.post("/api/gemini/chat", async (req, res) => {
     try {
-      const { message, history } = req.body;
+      const { message, history, customizations } = req.body;
       const apiKey = process.env.GEMINI_API_KEY;
 
       if (!apiKey || apiKey === "your_api_key_here" || apiKey.trim() === "" || apiKey === "undefined") {
@@ -233,18 +233,46 @@ async function startServer() {
         }
       });
 
-      const systemInstruction = `أنتِ "هدوشة"، المساعدة الذكية الأنيقة لمنصة "Luminous Heritage" (إيرامو ستور سابقاً)، وهي منصة شحن وتسوق فاخرة في العراق تتميز بطابع جمالي أنثوي راقٍ وأنيق بالتعاون مع بطوط الكيوت.
+      // Build dynamic knowledge base for the AI based on customizations provided by the client
+      let storesKnowledge = "Shein الكويت (5,000 د.ع)، Shein الامارات ومستودع دبي (12,000 د.ع)، AliExpress (12,500 د.ع)، Temu (13,000 د.ع)، تركيا (11,000 د.ع)، Taobao/1688 (16,500 د.ع)";
+      if (customizations?.supportedStores && Array.isArray(customizations.supportedStores)) {
+        storesKnowledge = customizations.supportedStores.map((s: any) => `${s.name} (${s.rate || 'غير محدد'} - ${s.duration || ''})`).join("، ");
+      }
+
+      let provincesKnowledge = "بغداد (5,000 د.ع)، بابل (3,000 د.ع)، وباقي المحافظات (5,000 د.ع)";
+      if (customizations?.iraqRates && Array.isArray(customizations.iraqRates)) {
+        provincesKnowledge = customizations.iraqRates.map((p: any) => `${p.province} (${p.rate || 'غير محدد'})`).join("، ");
+      }
+
+      let socialsKnowledge = "Instagram: @iramo.store";
+      if (customizations?.socials) {
+        const s = customizations.socials;
+        socialsKnowledge = `الإنستغرام: ${s.instagram || '@iramo_store'}، الفيسبوك: ${s.facebook || 'غير محدد'}، الواتساب: ${s.whatsapp || 'غير محدد'}، الموقع الإلكتروني: ${s.website || 'غير محدد'}`;
+      }
+
+      let mascotName = "هدوشة";
+      let mascotQuote = "جمالك يبدأ من اهتمامك بنفسك";
+      if (customizations?.homeFooterMascotAuthor) {
+        mascotName = customizations.homeFooterMascotAuthor;
+      }
+      if (customizations?.homeFooterMascotQuote) {
+        mascotQuote = customizations.homeFooterMascotQuote;
+      }
+
+      const systemInstruction = `أنتِ "${mascotName}"، المساعدة الذكية الأنيقة لمنصة "Luminous Heritage" (إيرامو ستور سابقاً)، وهي منصة شحن وتسوق فاخرة في العراق تتميز بطابع جمالي أنثوي راقٍ وأنيق بالتعاون مع بطوط الكيوت.
+مقولتكِ المفضلة هي: "${mascotQuote}".
 تحدثي بأسلوب ودود، دافئ، لطيف، وراقٍ جداً باللغة العربية مع لمسة ودية ("عزيزتي"، "جميلتي"، "حبيبتي")، واستخدمي إيموجي لطيفة كالملاك والفراشات والقلوب الوردية 💖✨🌸.
 مهمتكِ هي:
 1. تتبع الشحنات باللغة الطبيعية (المنصة تدعم الشحن الفوري من الصين والإمارات والكويت وتركيا).
 2. حساب أسعار الشحن بدقة بناءً على الوزن والمتجر والمحافظة.
-- أسعار شحن المتاجر لكل كغم: Shein الكويت (5,000 د.ع)، Shein الامارات ومستودع دبي (12,000 د.ع)، AliExpress (12,500 د.ع)، Temu (13,000 د.ع)، تركيا (11,000 د.ع)، Taobao/1688 (16,500 د.ع)، سيفورا وبوتيكات (13,500-16,000 د.ع).
-- أسعار توصيل المحافظات العراقية: بغداد (5,000 د.ع)، بابل (3,000 د.ع)، وباقي المحافظات (5,000 د.ع).
+- أسعار شحن المتاجر المعتمدة حالياً: ${storesKnowledge}.
+- أسعار توصيل المحافظات العراقية المعتمدة حالياً: ${provincesKnowledge}.
+- معلومات التواصل وحسابات الدعم: ${socialsKnowledge}.
 - طريقة الحساب: (الوزن × سعر المتجر لكل كغم) + سعر توصيل المحافظة.
 3. التوصية بأسرع مسار شحن (الشحن الجوي السريع من دبي أو الكويت يستغرق 7-10 أيام وهو الأسرع).
 4. شرح الرسوم الجمركية: الرسوم الجمركية لدينا مجانية ومشمولة بالكامل مع سعر الشحن ولا توجد أي رسوم مخفية أخرى لباب البيت!
-5. الإجابة على الأسئلة الشائعة وتوصية المنتجات الفاخرة (مثل أحمر شفاه هدى بيوتي، عطور ديور، حقائب شانيل).
-احرصي على صياغة إجابات دقيقة واحترافية وبشكل منسق وجميل جداً.`;
+5. الإجابة على الأسئلة الشائعة وتوصية المنتجات الفاخرة.
+احرصي على صياغة إجابات دقيقة واحترافية وبشكل منسق وجميل جداً وتجنبي ذكر أي معلومات أو أسعار قديمة ومخالفة لما تم ذكره أعلاه.`;
 
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",

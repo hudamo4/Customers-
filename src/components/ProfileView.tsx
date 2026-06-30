@@ -1703,20 +1703,23 @@ interface SpinWheelProps {
   onWin: (amount: number, type: 'points' | 'balance') => Promise<void>;
 }
 
-function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
+export function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
+  const { customizations } = useApp();
   const [spinning, setSpinning] = useState(false);
   const [deg, setDeg] = useState(0);
   const [winMessage, setWinMessage] = useState<string | null>(null);
   const [hasSpunToday, setHasSpunToday] = useState(false);
 
-  const PRIZES = [
-    { label: '50 نقطة ولاء 🎁', amount: 50, type: 'points' as const },
-    { label: 'حظ أوفر 🌸', amount: 0, type: 'points' as const },
-    { label: '150 نقطة ولاء ✨', amount: 150, type: 'points' as const },
-    { label: '5,000 د.ع رصيد 💳', amount: 5000, type: 'balance' as const },
-    { label: '100 نقطة ولاء 💫', amount: 100, type: 'points' as const },
-    { label: 'ألف د.ع رصيد محفظة 💰', amount: 1000, type: 'balance' as const },
-  ];
+  const PRIZES = customizations?.spinWheelPrizes && customizations.spinWheelPrizes.length > 0
+    ? customizations.spinWheelPrizes
+    : [
+        { label: '50 نقطة ولاء 🎁', amount: 50, type: 'points' as const },
+        { label: 'حظ أوفر 🌸', amount: 0, type: 'points' as const },
+        { label: '150 نقطة ولاء ✨', amount: 150, type: 'points' as const },
+        { label: '5,000 د.ع رصيد 💳', amount: 5000, type: 'balance' as const },
+        { label: '100 نقطة ولاء 💫', amount: 100, type: 'points' as const },
+        { label: 'ألف د.ع رصيد محفظة 💰', amount: 1000, type: 'balance' as const },
+      ];
 
   const handleSpin = () => {
     if (spinning || hasSpunToday) return;
@@ -1746,6 +1749,14 @@ function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
     }, 5000);
   };
 
+  const conicParts = PRIZES.map((_, idx) => {
+    const percentStart = ((idx / PRIZES.length) * 100).toFixed(1);
+    const percentEnd = (((idx + 1) / PRIZES.length) * 100).toFixed(1);
+    const color = idx % 2 === 0 ? '#fff1f2' : '#ffffff';
+    return `${color} ${percentStart}% ${percentEnd}%`;
+  }).join(', ');
+  const conicGradientStr = `conic-gradient(${conicParts})`;
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
       <div className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-5 items-center">
@@ -1766,18 +1777,45 @@ function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
           دوري عجلة الجمال اليومية لربح جوائز رائعة من نقاط الولاء ورصيد محفظة إيرامو! 🎡💖
         </p>
 
-        {/* 🎡 THE WHEEL */}
-        <div className="relative w-64 h-64 my-4 flex items-center justify-center">
-          {/* Outer pin indicator */}
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20 w-6 h-8 bg-pink-700 border-2 border-white rounded-b-full shadow-md"></div>
-          
+        {/* 🎡 THE WHEEL (Luxurious 3D design) */}
+        <div className="relative w-64 h-64 my-4 flex items-center justify-center select-none">
+          {/* Backing 3D shadow */}
+          <div className="absolute inset-1.5 bg-pink-900/10 rounded-full blur-md translate-y-3 pointer-events-none z-0" />
+
+          {/* Golden metallic 3D bezel outer rim */}
+          <div className="absolute inset-0 rounded-full border-[8px] border-amber-400 bg-gradient-to-tr from-amber-500 via-yellow-200 to-amber-600 shadow-[0_12px_24px_rgba(219,39,119,0.2),_inset_0_2px_6px_rgba(255,255,255,0.7),_inset_0_-2px_6px_rgba(0,0,0,0.2)] z-10 pointer-events-none">
+            {/* Tiny retro lightbulbs around rim */}
+            {Array.from({ length: 12 }).map((_, i) => {
+              const angle = (i * 30 * Math.PI) / 180;
+              const x = 120 + 112 * Math.cos(angle);
+              const y = 120 + 112 * Math.sin(angle);
+              const isLit = (i + (spinning ? 2 : 0)) % 2 === 0;
+              return (
+                <span 
+                  key={i}
+                  style={{ left: `${x}px`, top: `${y}px` }}
+                  className={`absolute w-1.5 h-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full shadow-xs transition-all duration-300 ${
+                    isLit ? 'bg-yellow-100 shadow-yellow-200 scale-110' : 'bg-yellow-600'
+                  }`}
+                />
+              );
+            })}
+          </div>
+
+          {/* Golden pointer pointer on top */}
+          <div className="absolute top-[-6px] left-1/2 -translate-x-1/2 w-6 h-6 z-20 pointer-events-none drop-shadow-md">
+            <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[14px] border-t-amber-500 relative">
+              <div className="absolute top-[-16px] left-[-4px] w-2 h-2 bg-amber-200 rounded-full border border-amber-500" />
+            </div>
+          </div>
+
           <div 
             style={{ 
               transform: `rotate(${deg}deg)`,
               transition: spinning ? 'transform 5s cubic-bezier(0.15, 0.85, 0.35, 1)' : 'none',
-              backgroundImage: 'conic-gradient(#fff1f2 0% 16.6%, #fff 16.6% 33.3%, #fff1f2 33.3% 50%, #fff 50% 66.6%, #fff1f2 66.6% 83.3%, #fff 83.3% 100%)'
+              backgroundImage: conicGradientStr
             }}
-            className="w-full h-full rounded-full border-4 border-pink-700 shadow-xl relative overflow-hidden flex items-center justify-center"
+            className="w-[240px] h-[240px] rounded-full border-2 border-white/60 shadow-inner relative overflow-hidden flex items-center justify-center z-0"
           >
             {PRIZES.map((prize, index) => {
               const angle = (360 / PRIZES.length) * index;
@@ -1787,7 +1825,7 @@ function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
                   style={{ transform: `rotate(${angle}deg)` }}
                   className="absolute top-0 right-0 left-0 bottom-0 origin-center flex items-start justify-center pt-8 pointer-events-none select-none"
                 >
-                  <span className="text-[9px] font-black text-pink-800 text-center tracking-tight whitespace-nowrap block" style={{ transform: 'rotate(90deg)' }}>
+                  <span className="text-[9px] font-black text-pink-900 text-center tracking-tight whitespace-nowrap block" style={{ transform: 'rotate(90deg)' }}>
                     {prize.label}
                   </span>
                 </div>
@@ -1795,8 +1833,8 @@ function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
             })}
             
             {/* Center Hub Button */}
-            <div className="absolute w-12 h-12 bg-gradient-to-tr from-pink-700 to-rose-600 text-white rounded-full border-2 border-white shadow-md flex items-center justify-center z-10 font-black text-[10px]">
-              Eramo
+            <div className="absolute w-12 h-12 bg-gradient-to-tr from-amber-500 via-amber-300 to-yellow-200 text-amber-950 rounded-full border-2 border-white shadow-md flex items-center justify-center z-10 font-black text-[10px] shadow-amber-950/20">
+              IRAMO
             </div>
           </div>
         </div>

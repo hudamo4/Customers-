@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { doc, collection, query, where, onSnapshot, updateDoc, deleteDoc, addDoc, setDoc, serverTimestamp, getDoc, getDocs } from 'firebase/firestore';
-import { db, setupAnonymousUser, seedInitialDataIfEmpty, auth } from '../lib/firebase';
+import { db, setupAuthListener, seedInitialDataIfEmpty, auth } from '../lib/firebase';
 import { UserProfile, Shipment, Invoice, NotificationDetail, AppCustomizations } from '../types';
 import { DEFAULT_AVATAR } from '../utils/avatar';
 
@@ -35,11 +35,17 @@ interface AppContextType {
   redeemPoints: (amount: number) => Promise<void>;
   addShipment: (shipment: Shipment) => Promise<void>;
   deleteShipment: (id: string) => Promise<void>;
+  clearAllShipments: () => Promise<void>;
   addNotification: (notif: Omit<NotificationDetail, 'id' | 'userId'>) => Promise<void>;
-  updateShipmentStatus: (shipmentId: string, newStatus: string) => Promise<void>;
+  updateShipmentStatus: (
+    shipmentId: string, 
+    newStatus: string, 
+    transitParams?: { transitType: 'air' | 'sea', transitSpeed: number, transitAltitude: number, simulatedProgress: number }
+  ) => Promise<void>;
   payInvoice: (invoiceId: string) => Promise<void>;
   addInvoice: (invoice: Invoice) => Promise<void>;
   deleteInvoice: (id: string) => Promise<void>;
+  clearAllInvoices: () => Promise<void>;
   rateInvoice: (invoiceId: string, rating: number, comment?: string) => Promise<void>;
   updateCustomizations: (cust: Partial<AppCustomizations>) => Promise<void>;
   updateAvatar: (avatar: string) => Promise<void>;
@@ -47,7 +53,7 @@ interface AppContextType {
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
   login: (identifier: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  register: (username: string, phone: string, name: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  register: (username: string, phone: string, name: string, password: string, city: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
 }
 
@@ -334,7 +340,33 @@ export const DEFAULT_CUSTOMIZATIONS: AppCustomizations = {
   notificationsWelcomeText: 'مركز الإشعارات والتحديثات المباشرة لمعرفة خط سير شحناتكِ والخصومات أولاً بأول ✨',
   invoiceHadooshaImageUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDozyQcrL4Yfp5wLXW9Y-K0AeiCtSO2G3lZVMIyffDaIoEBlb_otr_uLGq-Drr0G6N0FS5d6-u6YBfHWJzesjiFbJdWnD15Ct9IDSO08EczvwkYAWgQgEP3d-v91GCN7bOyvBP_FftRv6BChSeEzC7BDbSMtH3DXgL1bbvle6xHA957rBT170X9F2Itu0sPNmwKRqwqkDVOI_Pw-dG5myf2pu5mCFrs-IUMx_XlMi2OYl5IjfQgqquSxEAaElda7W5e1ZN5LhTYUFQ',
   mastercardExpiry: '12/28',
-  mastercardCvv: '345'
+  mastercardCvv: '345',
+  spinWheelPrizes: [
+    { label: '50 نقطة ولاء 🎁', amount: 50, type: 'points' },
+    { label: 'حظ أوفر 🌸', amount: 0, type: 'points' },
+    { label: '150 نقطة ولاء ✨', amount: 150, type: 'points' },
+    { label: '5,000 د.ع رصيد 💳', amount: 5000, type: 'balance' },
+    { label: '100 نقطة ولاء 💫', amount: 100, type: 'points' },
+    { label: 'ألف د.ع رصيد محفظة 💰', amount: 1000, type: 'balance' }
+  ],
+  offeredServices: [
+    { id: 'srv_1', title: 'الشحن الجوي السريع', description: 'من الصين والإمارات والكويت وتركيا لباب بيتكِ خلال 7-10 أيام فقط بدقة متناهية ودلال لا ينتهي.', iconName: 'Plane' },
+    { id: 'srv_2', title: 'التسوق بالنيابة عنكِ', description: 'نوفر لكِ خدمة الشراء من كافة المواقع العالمية الفاخرة (Sephora, Shein, Temu) بدون عمولات معقدة.', iconName: 'ShoppingBag' },
+    { id: 'srv_3', title: 'التوصيل الآمن لكافة المحافظات', description: 'شبكة لوجستية متطورة تغطي جميع مدن العراق لضمان وصول شحناتكِ مغلفة وبأفضل حال.', iconName: 'Truck' },
+    { id: 'srv_4', title: 'تتبع الشحنات الذكي 3D', description: 'نظام متطور لمراقبة حركة سفينة أو طائرة الشحن بشكل حي وتفاعلي يواكب تحديثات خط السير.', iconName: 'Compass' }
+  ],
+  features: {
+    loyaltySystem: true,
+    aiAssistant: true,
+    reviews: true,
+    wishlist: true,
+    notifications: true,
+    flashSales: true,
+    membershipCards: true,
+    referrals: true,
+    coupons: true,
+    chatSupport: true
+  }
 };
 
 
@@ -353,17 +385,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     // Setup auth and attempt real-time DB sync
-    setupAnonymousUser(async (currentUser) => {
+    const unsubscribe = setupAuthListener(async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
 
-      // Attempt to seed Firestore but gracefully ignore permission/access failures
-      try {
-        await seedInitialDataIfEmpty(currentUser.uid);
-      } catch (err) {
-        console.warn("Firestore seeding skipped:", err);
+      if (currentUser) {
+        // Attempt to seed Firestore but gracefully ignore permission/access failures
+        try {
+          await seedInitialDataIfEmpty(currentUser.uid);
+        } catch (err) {
+          console.warn("Firestore seeding skipped:", err);
+        }
       }
     });
+    return () => unsubscribe();
   }, []);
 
   // 2. Real-time profile listener reacting to user changes
@@ -493,21 +528,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           healed = true;
         }
 
-        // Force-heal toggle switches to show all mascot content in client view
-        if (data.showBanners !== true) {
+        // Fallback default toggle switches if undefined to show by default
+        if (data.showBanners === undefined) {
           data.showBanners = true;
           healed = true;
         }
-        if (data.showStores !== true) {
+        if (data.showStores === undefined) {
           data.showStores = true;
           healed = true;
         }
-        if (data.showLoyalty !== true) {
+        if (data.showLoyalty === undefined) {
           data.showLoyalty = true;
           healed = true;
         }
-        if (data.showAnnouncement !== true) {
+        if (data.showAnnouncement === undefined) {
           data.showAnnouncement = true;
+          healed = true;
+        }
+
+        if (!data.spinWheelPrizes || !Array.isArray(data.spinWheelPrizes) || data.spinWheelPrizes.length === 0) {
+          data.spinWheelPrizes = DEFAULT_CUSTOMIZATIONS.spinWheelPrizes;
+          healed = true;
+        }
+        if (!data.offeredServices || !Array.isArray(data.offeredServices) || data.offeredServices.length === 0) {
+          data.offeredServices = DEFAULT_CUSTOMIZATIONS.offeredServices;
           healed = true;
         }
 
@@ -728,6 +772,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const clearAllShipments = async () => {
+    setShipments([]);
+    setSelectedShipmentId(null);
+    if (!user) return;
+    try {
+      const q = query(collection(db, 'shipments'));
+      const snap = await getDocs(q);
+      const deletePromises = snap.docs.map(docSnap => deleteDoc(docSnap.ref));
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.warn("Firestore Bulk Shipment deletion failed:", error);
+    }
+  };
+
   const addNotification = async (notif: Omit<NotificationDetail, 'id' | 'userId'>) => {
     const newNotif: NotificationDetail = {
       ...notif,
@@ -748,7 +806,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const updateShipmentStatus = async (shipmentId: string, newStatus: string) => {
+  const updateShipmentStatus = async (
+    shipmentId: string, 
+    newStatus: string, 
+    transitParams?: { transitType: 'air' | 'sea', transitSpeed: number, transitAltitude: number, simulatedProgress: number }
+  ) => {
     const updated = shipments.map(s => {
       if (s.id === shipmentId) {
         const currentJourney = s.journey || [];
@@ -764,7 +826,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return {
           ...s,
           status: newStatus,
-          journey: [newJourneyStep, ...cleanJourney]
+          journey: [newJourneyStep, ...cleanJourney],
+          ...(transitParams || {})
         };
       }
       return s;
@@ -774,10 +837,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
     try {
       const shipmentDocRef = doc(db, 'shipments', shipmentId);
-      await updateDoc(shipmentDocRef, {
+      const updateData: any = {
         status: newStatus,
         journey: updated.find(s => s.id === shipmentId)?.journey
-      });
+      };
+      if (transitParams) {
+        updateData.transitType = transitParams.transitType;
+        updateData.transitSpeed = transitParams.transitSpeed;
+        updateData.transitAltitude = transitParams.transitAltitude;
+        updateData.simulatedProgress = transitParams.simulatedProgress;
+      }
+      await updateDoc(shipmentDocRef, updateData);
     } catch (error) {
       console.warn("Firestore Shipment status update failed:", error);
     }
@@ -865,6 +935,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const clearAllInvoices = async () => {
+    setInvoices([]);
+    if (!user) return;
+    try {
+      const q = query(collection(db, 'invoices'));
+      const snap = await getDocs(q);
+      const deletePromises = snap.docs.map(docSnap => deleteDoc(docSnap.ref));
+      await Promise.all(deletePromises);
+    } catch (error) {
+      console.warn("Firestore Bulk Invoice deletion failed:", error);
+    }
+  };
+
   const rateInvoice = async (invoiceId: string, rating: number, comment?: string) => {
     const todayStr = new Date().toLocaleDateString('ar-IQ', { year: 'numeric', month: 'numeric', day: 'numeric' });
     const updatedInvoices = invoices.map(inv => {
@@ -924,118 +1007,223 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const isLoggedIn = user ? !user.isAnonymous : false;
+  const isLoggedIn = user !== null;
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
 
   const login = async (identifier: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const usersRef = collection(db, 'users');
-      // Query by customerId (username)
-      const qId = query(usersRef, where('customerId', '==', identifier.trim()));
-      const snapId = await getDocs(qId);
-      let matchedDoc = snapId.docs[0];
+      const identifierClean = identifier.trim();
+      let customerData: any = null;
 
-      if (!matchedDoc) {
-        // Query by phone
-        const qPhone = query(usersRef, where('phone', '==', identifier.trim()));
+      // 1. First, search for user in customers/{customerId} collection where customerId is the username
+      const custDocRef = doc(db, 'customers', identifierClean);
+      const custSnap = await getDoc(custDocRef);
+      if (custSnap.exists()) {
+        customerData = custSnap.data();
+      } else {
+        // 2. Otherwise search by phone number inside customers collection
+        const custsRef = collection(db, 'customers');
+        const qPhone = query(custsRef, where('phone', '==', identifierClean));
         const snapPhone = await getDocs(qPhone);
-        matchedDoc = snapPhone.docs[0];
+        if (!snapPhone.empty) {
+          customerData = snapPhone.docs[0].data();
+        }
       }
 
-      if (!matchedDoc) {
-        return { success: false, error: 'اسم المستخدم أو رقم الهاتف غير مسجل لدينا 🌸' };
+      // 3. Determine if admin user
+      let isAdminUser = false;
+      if (!customerData) {
+        const identifierLower = identifierClean.toLowerCase();
+        if (identifierLower === 'admin' || identifierLower === 'هدى' || identifierLower === 'admin_001' || identifierLower === 'هدوشة' || identifierLower === 'huda') {
+          isAdminUser = true;
+        } else {
+          // Check role in users collection
+          const usersRef = collection(db, 'users');
+          const qId = query(usersRef, where('customerId', '==', identifierClean));
+          const snapId = await getDocs(qId);
+          if (!snapId.empty && snapId.docs[0].data().role === 'admin') {
+            isAdminUser = true;
+          }
+        }
       }
 
-      const userData = matchedDoc.data();
-      if (userData.password !== password) {
-        return { success: false, error: 'كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى 💖' };
+      // 4. Handle account suspension check
+      if (customerData && customerData.accountStatus === 'suspended') {
+        return { 
+          success: false, 
+          error: '⚠️ عذراً، تم تعليق حسابكِ مؤقتاً من قبل الإدارة، يرجى التواصل مع الدعم لخدمتكِ 🌸' 
+        };
       }
 
-      // Login to Firebase Auth using custom mapping
-      const email = `${userData.customerId.toLowerCase()}@iramo.com`;
-      let authUser;
+      let targetUsername = identifierClean;
+      let targetPassword = password;
+
+      if (customerData) {
+        targetUsername = customerData.username;
+        // Fetch backup password from users table if it matches
+        const userDocRef = doc(db, 'users', customerData.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (userSnap.exists()) {
+          targetPassword = userSnap.data().password || password;
+        }
+      }
+
+      // 5. Auth using email mapping
+      const email = isAdminUser 
+        ? 'admin@iramo.com' 
+        : `${targetUsername.toLowerCase()}@iramo.com`;
+
+      let cred;
       try {
-        const cred = await signInWithEmailAndPassword(auth, email, password);
-        authUser = cred.user;
+        cred = await signInWithEmailAndPassword(auth, email, password);
       } catch (authErr: any) {
-        if (authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential') {
-          // If the auth user doesn't exist or credential is mismatch, try creating user
-          try {
-            const cred = await createUserWithEmailAndPassword(auth, email, password);
-            authUser = cred.user;
-          } catch (createErr: any) {
-            // If already exists, fallback to login
-            if (createErr.code === 'auth/email-already-in-use') {
-              const cred = await signInWithEmailAndPassword(auth, email, password);
-              authUser = cred.user;
-            } else {
-              throw createErr;
-            }
+        const isUserNotFound = authErr.code === 'auth/user-not-found' || authErr.code === 'auth/invalid-credential';
+        
+        if (isUserNotFound) {
+          // If credentials don't exist in auth but is correct admin password, or matching customer password, auto-create it
+          let canAutoCreate = false;
+          if (isAdminUser && (password === 'admin123' || password === 'admin')) {
+            canAutoCreate = true;
+          } else if (customerData && password === targetPassword) {
+            canAutoCreate = true;
+          }
+          
+          if (canAutoCreate) {
+            console.log(`Auto-creating missing Auth credentials for ${email}...`);
+            cred = await createUserWithEmailAndPassword(auth, email, password);
+          } else {
+            throw authErr;
           }
         } else {
           throw authErr;
         }
       }
+      
+      const authUser = cred.user;
 
-      // If they logged in, write/copy user document under their auth UID if it doesn't exist
+      // Update lastLogin for customer
+      if (customerData) {
+        await updateDoc(doc(db, 'customers', customerData.username), {
+          lastLogin: new Date().toISOString()
+        }).catch(() => null);
+      }
+
+      // Verify users/{uid} existence
       const userDocRef = doc(db, 'users', authUser.uid);
       const userSnap = await getDoc(userDocRef);
       if (!userSnap.exists()) {
         await setDoc(userDocRef, {
-          ...userData,
-          uid: authUser.uid
+          uid: authUser.uid,
+          customerId: targetUsername,
+          name: isAdminUser ? 'المديرة هدوشة' : (customerData?.fullName || targetUsername),
+          phone: customerData?.phone || '',
+          password: targetPassword,
+          role: isAdminUser ? 'admin' : 'customer',
+          membership: isAdminUser ? 'premium' : 'عضوية أساسية',
+          points: isAdminUser ? 99999 : (customerData?.loyaltyPoints || 0),
+          walletBalance: isAdminUser ? 10000000 : 0,
+          city: customerData?.city || 'بغداد، العراق',
+          avatar: customerData?.profileImage || DEFAULT_AVATAR
         });
-        // Seed default shipments/invoices/notifications for this new Auth UID!
-        await seedInitialDataIfEmpty(authUser.uid);
+      } else if (isAdminUser) {
+        // Ensure role is admin in users collection for authUser.uid
+        await updateDoc(userDocRef, { role: 'admin' }).catch(() => null);
       }
 
       return { success: true };
     } catch (err: any) {
       console.error("Login failed:", err);
-      return { success: false, error: err.message || 'حدث خطأ غير متوقع أثناء تسجيل الدخول.' };
+      let errMsg = 'اسم المستخدم أو كلمة المرور غير صحيحة، يرجى التحقق والمحاولة ثانية 🌸';
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errMsg = 'كلمة المرور غير صحيحة، يرجى المحاولة مرة أخرى 💖';
+      } else if (err.code === 'auth/user-not-found') {
+        errMsg = 'الحساب غير مسجل لدينا 🌸';
+      }
+      return { success: false, error: errMsg };
     }
   };
 
-  const register = async (username: string, phone: string, name: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const register = async (username: string, phone: string, name: string, password: string, city: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const usersRef = collection(db, 'users');
-      // Check if username already exists
-      const qId = query(usersRef, where('customerId', '==', username.trim()));
-      const snapId = await getDocs(qId);
-      if (!snapId.empty) {
+      const usernameClean = username.trim();
+      const phoneClean = phone.trim();
+      const nameClean = name.trim();
+      const cityClean = city.trim();
+
+      // 1. Validate username uniqueness in customers collection
+      const custDocRef = doc(db, 'customers', usernameClean);
+      const custSnap = await getDoc(custDocRef);
+      if (custSnap.exists()) {
         return { success: false, error: 'اسم المستخدم هذا مسجل مسبقاً 🌸 يرجى اختيار اسم آخر.' };
       }
 
-      // Check if phone already exists
-      const qPhone = query(usersRef, where('phone', '==', phone.trim()));
+      // 2. Validate phone uniqueness in customers collection
+      const custsRef = collection(db, 'customers');
+      const qPhone = query(custsRef, where('phone', '==', phoneClean));
       const snapPhone = await getDocs(qPhone);
       if (!snapPhone.empty) {
         return { success: false, error: 'رقم الهاتف هذا مسجل مسبقاً لدينا 💖' };
       }
 
-      // Create Auth user
-      const email = `${username.trim().toLowerCase()}@iramo.com`;
+      // 3. Create Auth user
+      const email = `${usernameClean.toLowerCase()}@iramo.com`;
       const cred = await createUserWithEmailAndPassword(auth, email, password);
       const authUser = cred.user;
 
-      // Save user document in Firestore
-      const userDocRef = doc(db, 'users', authUser.uid);
+      const profileImage = DEFAULT_AVATAR;
+      const registrationDate = new Date().toISOString();
+
+      // 4. Create document in customers/{customerId} Firestore collection
+      const newCustomerDoc = {
+        uid: authUser.uid,
+        fullName: nameClean,
+        username: usernameClean,
+        phone: phoneClean,
+        city: cityClean,
+        profileImage: profileImage,
+        registrationDate: registrationDate,
+        lastLogin: registrationDate,
+        accountStatus: 'active',
+        totalOrders: 0,
+        totalSpent: 0,
+        loyaltyPoints: 0
+      };
+      await setDoc(doc(db, 'customers', usernameClean), newCustomerDoc);
+
+      // 5. Create user document in users/{uid} collection for full compatibility with existing parts
       const newProfile: UserProfile = {
         uid: authUser.uid,
-        customerId: username.trim(),
-        name: name.trim(),
-        phone: phone.trim(),
+        customerId: usernameClean,
+        name: nameClean,
+        phone: phoneClean,
         password: password,
         role: 'customer',
         membership: 'عضوية أساسية',
         points: 0,
         walletBalance: 0,
-        city: 'بغداد، العراق',
-        avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9EaYCDGI3nnclPO4Dfn8I8RZWRNVEKBUb-qxzppoUDSSF0uOYRcTHzQEOvzXtqZyk5bVh4idglS262c_ZUgYdgA-h1OorPVThxh8UXI7GHoH2uDEhbQg2eVlFMYU4isBKM9I_0LSyYdiFMT_ttIH-xYE0KuXOFy-Kz_UIlEMn-XC4L9y1Vol5VvGdb1i51-vz5DCQ3rO23XQP4xhX_1niZMeMM8D-RuEUU1U-r7VqHSMTCi7iILOoNy4WG-WS3v4pxciGg6Rk_QE'
+        city: cityClean,
+        avatar: profileImage
       };
+      await setDoc(doc(db, 'users', authUser.uid), newProfile);
 
-      await setDoc(userDocRef, newProfile);
       await seedInitialDataIfEmpty(authUser.uid);
+
+      // Add admin notification for new user signup
+      try {
+        await addDoc(collection(db, 'notifications'), {
+          userId: 'Admin_001',
+          notificationId: `new_user_${Date.now()}`,
+          type: 'support',
+          title: 'عضوة جديدة انضمت للتطبيق! 🎉',
+          content: `سجلت الزبونة الكريمة ${nameClean} برقم هاتف ${phoneClean} واسم مستخدم ${usernameClean}.`,
+          time: 'الآن',
+          icon: 'Sparkles',
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      } catch (e) {
+        console.warn("Could not create admin signup notification:", e);
+      }
 
       return { success: true };
     } catch (err: any) {
@@ -1098,11 +1286,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         redeemPoints,
         addShipment,
         deleteShipment,
+        clearAllShipments,
         addNotification,
         updateShipmentStatus,
         payInvoice,
         addInvoice,
         deleteInvoice,
+        clearAllInvoices,
         rateInvoice,
         updateCustomizations,
         updateAvatar,

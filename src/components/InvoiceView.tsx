@@ -425,6 +425,18 @@ export default function InvoiceView() {
 
   // Mastercard Payment States
   const [showPaymentModal, setShowPaymentModal] = useState<boolean>(false);
+
+  // Lock body scroll when modals are active
+  React.useEffect(() => {
+    if (showVoucherModal || showPaymentModal || isEditingImage) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showVoucherModal, showPaymentModal, isEditingImage]);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [cardNumber, setCardNumber] = useState<string>(() => {
     return profile?.savedCardNumber || '5412 7500 1234 5678';
@@ -1168,8 +1180,11 @@ export default function InvoiceView() {
 
       {/* Edit Invoice Character Image Modal (Manager Only) */}
       {isEditingImage && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-pink-100 shadow-2xl animate-fade-in text-right">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" dir="rtl" onClick={() => setIsEditingImage(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-3xl max-w-md w-full p-6 space-y-4 border border-pink-100 shadow-2xl text-right max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-pink-50 pb-3 flex-row-reverse">
               <button 
                 onClick={() => setIsEditingImage(false)}
@@ -1544,8 +1559,12 @@ export default function InvoiceView() {
 
       {/* Mastercard Interactive Payment Modal */}
       {showPaymentModal && selectedInvoice && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-[99999] flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-[32px] w-full max-w-md p-6 shadow-2xl relative overflow-y-auto max-h-[92vh] space-y-6 border border-pink-100/50 text-right flex flex-col" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/70 backdrop-blur-md animate-fade-in" onClick={() => setShowPaymentModal(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-[32px] w-full max-w-md p-6 shadow-2xl overflow-y-auto max-h-[90vh] space-y-6 border border-pink-100/50 text-right flex flex-col" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Header */}
             <div className="flex justify-between items-center pb-2 border-b border-pink-100/30">
@@ -1720,7 +1739,13 @@ export default function InvoiceView() {
 
       {/* Elegant traditional Iraqi print voucher modal */}
       {showVoucherModal && selectedInvoiceForVoucher && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99999] flex flex-col items-center justify-start md:justify-center p-4 py-8 md:py-12 overflow-y-auto animate-fade-in" dir="rtl">
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-md z-[99998] flex flex-col items-center justify-start md:justify-center p-4 py-8 md:py-12 overflow-y-auto animate-fade-in" 
+          dir="rtl"
+          onClick={() => setShowVoucherModal(false)}
+        >
+          {/* Wrapper to stop click propagation to background overlay click-to-close */}
+          <div className="w-full max-w-[480px] z-[99999] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
           {/* Action controls for the voucher */}
           <div className="w-full max-w-[480px] flex items-center justify-between mb-3 no-print bg-white/90 backdrop-blur p-3 rounded-2xl shadow-md border border-pink-100">
             <div className="flex gap-2">
@@ -1774,6 +1799,8 @@ export default function InvoiceView() {
               }
               #printable-voucher, #printable-voucher * {
                 visibility: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
               #printable-voucher {
                 position: absolute !important;
@@ -1787,6 +1814,8 @@ export default function InvoiceView() {
                 margin: 0 !important;
                 padding: 10px !important;
                 background-color: white !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
               }
               .no-print {
                 display: none !important;
@@ -1801,6 +1830,7 @@ export default function InvoiceView() {
           <p className="text-white/60 text-[10px] mt-4 font-bold max-w-xs text-center leading-relaxed no-print">
             💡 يمكنكِ طباعة هذا الوصل فوراً أو حفظه كملف PDF عبر النقر على زر "طباعة الوصل" أعلاه.
           </p>
+          </div>
         </div>
       )}
 

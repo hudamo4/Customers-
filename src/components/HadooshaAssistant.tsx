@@ -60,6 +60,7 @@ export default function HadooshaAssistant() {
         },
         body: JSON.stringify({
           message: textToSend,
+          customizations: customizations,
           history: chatHistory.filter(m => m.id !== 'welcome').map(m => ({
             role: m.role,
             content: m.content

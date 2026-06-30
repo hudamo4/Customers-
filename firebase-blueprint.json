@@ -70,12 +70,36 @@
         "status": { "type": "string", "enum": ["sent", "scheduled", "expired"] }
       },
       "required": ["userId", "notificationId", "type", "title", "content", "time", "read"]
+    },
+    "customer": {
+      "title": "Customer",
+      "description": "Registered customer details.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullName": { "type": "string" },
+        "username": { "type": "string" },
+        "phone": { "type": "string" },
+        "city": { "type": "string" },
+        "profileImage": { "type": "string" },
+        "registrationDate": { "type": "string" },
+        "lastLogin": { "type": "string" },
+        "accountStatus": { "type": "string" },
+        "totalOrders": { "type": "integer" },
+        "totalSpent": { "type": "number" },
+        "loyaltyPoints": { "type": "integer" }
+      },
+      "required": ["uid", "fullName", "username", "phone", "city", "profileImage", "registrationDate", "lastLogin", "accountStatus", "totalOrders", "totalSpent", "loyaltyPoints"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "user",
       "description": "User profiles containing name, phone, city, loyalty points."
+    },
+    "/customers/{customerId}": {
+      "schema": "customer",
+      "description": "Detailed customer profile for management."
     },
     "/shipments/{shipmentId}": {
       "schema": "shipment",

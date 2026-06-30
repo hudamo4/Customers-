@@ -36,9 +36,24 @@ export default function TrackingView() {
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [selectedMapNode, setSelectedMapNode] = useState<number | null>(null);
   const [mapViewTab, setMapViewTab] = useState<'diagram' | 'gps'>('diagram');
+  
+  // Interactive Shipping Rates Table State
+  const [interWeight, setInterWeight] = useState<number>(1.0);
+  const [interSource, setInterSource] = useState<string>('kwt');
 
   // Network offline/online status tracking
   const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);
+
+  React.useEffect(() => {
+    if (showDeleteConfirm) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showDeleteConfirm]);
 
   React.useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -128,6 +143,19 @@ export default function TrackingView() {
   const getStatusStyles = (status: string) => {
     const s = (status || '').toLowerCase();
     
+    // Delayed / Late (Red / Rose)
+    if (s.includes('متأخر') || s.includes('تأخير') || s.includes('delay') || s.includes('متأخرة')) {
+      return {
+        bg: 'bg-rose-50 text-rose-800',
+        border: 'border-rose-200/80',
+        dot: 'bg-rose-500 shadow-md shadow-rose-500/50 animate-pulse',
+        label: 'متأخر ⚠️',
+        glow: 'shadow-rose-200',
+        colorClass: 'rose',
+        borderColor: '#f43f5e'
+      };
+    }
+
     // Completed / Delivered (Green)
     if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid')) {
       return {
@@ -135,7 +163,9 @@ export default function TrackingView() {
         border: 'border-emerald-200/80',
         dot: 'bg-emerald-500',
         label: 'مكتمل ✓',
-        glow: 'shadow-emerald-200'
+        glow: 'shadow-emerald-200',
+        colorClass: 'emerald',
+        borderColor: '#10b981'
       };
     }
     
@@ -146,7 +176,9 @@ export default function TrackingView() {
         border: 'border-amber-200/80',
         dot: 'bg-amber-500 animate-pulse',
         label: 'قيد التوصيل 🚚',
-        glow: 'shadow-amber-200'
+        glow: 'shadow-amber-200',
+        colorClass: 'amber',
+        borderColor: '#f59e0b'
       };
     }
     
@@ -157,7 +189,9 @@ export default function TrackingView() {
         border: 'border-sky-200/80',
         dot: 'bg-sky-500',
         label: 'في مطار بغداد ✈️',
-        glow: 'shadow-sky-200'
+        glow: 'shadow-sky-200',
+        colorClass: 'sky',
+        borderColor: '#0ea5e9'
       };
     }
     
@@ -167,8 +201,60 @@ export default function TrackingView() {
       border: 'border-pink-100/80',
       dot: 'bg-pink-500',
       label: 'قيد المعالجة 📦',
-      glow: 'shadow-pink-200'
+      glow: 'shadow-pink-200',
+      colorClass: 'pink',
+      borderColor: '#db2777'
     };
+  };
+
+  // Circular status indicator helper (Green for completed, Yellow for active, Red for delayed)
+  const getStatusCircleStyle = (status: string) => {
+    const s = (status || '').toLowerCase();
+    
+    // Delayed (Red/Rose)
+    if (s.includes('متأخر') || s.includes('تأخير') || s.includes('delay') || s.includes('متأخرة')) {
+      return {
+        bgClass: 'bg-rose-500',
+        pingClass: 'bg-rose-400',
+        borderClass: 'border-rose-200',
+        label: 'متأخر ⚠️'
+      };
+    }
+    
+    // Completed (Green/Emerald)
+    if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid') || s.includes('delivered')) {
+      return {
+        bgClass: 'bg-emerald-500',
+        pingClass: 'bg-emerald-400',
+        borderClass: 'border-emerald-200',
+        label: 'مكتمل ✓'
+      };
+    }
+    
+    // Active (Yellow/Amber) - default
+    return {
+      bgClass: 'bg-amber-500',
+      pingClass: 'bg-amber-400',
+      borderClass: 'border-amber-200',
+      label: 'نشط ⚡'
+    };
+  };
+
+  const getStatusIcon = (status: string, className: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('متأخر') || s.includes('تأخير') || s.includes('delay') || s.includes('متأخرة')) {
+      return <AlertTriangle className={className} />;
+    }
+    if (s.includes('تسليم') || s.includes('استلام') || s.includes('تم التسليم') || s.includes('وصلت للزبون') || s.includes('مكتمل') || s.includes('paid')) {
+      return <CheckCircle className={className} />;
+    }
+    if (s.includes('طريق') || s.includes('مندوب') || s.includes('توصيل') || s.includes('شحن')) {
+      return <Box className={className} />;
+    }
+    if (s.includes('مطار') || s.includes('جمارك') || s.includes('بغداد') || s.includes('ترانزيت')) {
+      return <Plane className={className} />;
+    }
+    return <Package className={className} />;
   };
 
   // Icon mapper helper
@@ -327,27 +413,41 @@ export default function TrackingView() {
           >
             {filteredShipments.map((s) => {
               const statusStyles = getStatusStyles(s.status);
+              const circleStyle = getStatusCircleStyle(s.status);
               const isActive = activeShipment?.id === s.id;
+              const statusIcon = getStatusIcon(s.status, `w-3.5 h-3.5 ${isActive ? 'text-white' : statusStyles.dot.split(' ')[0]}`);
+              
               return (
                 <motion.button
                   variants={itemVariants}
                   key={s.id}
                   onClick={() => setSelectedShipmentId(s.id || null)}
-                  className={`px-4 py-3 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-2 border cursor-pointer active:scale-95 ${
+                  className={`px-4 py-3 rounded-2xl text-xs font-black whitespace-nowrap transition-all flex items-center gap-3 border cursor-pointer active:scale-95 ${
                     isActive
                       ? 'bg-gradient-to-r from-pink-700 to-pink-500 text-white shadow-lg shadow-pink-500/20 border-transparent scale-[1.02]'
                       : 'bg-white border-pink-100/50 text-gray-700 hover:bg-pink-50/40 hover:border-pink-200'
                   }`}
+                  style={!isActive ? { borderRight: `4px solid ${statusStyles.borderColor}` } : {}}
                 >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${statusStyles.dot}`} />
+                  <div className={`p-1.5 rounded-xl flex items-center justify-center shrink-0 ${
+                    isActive ? 'bg-white/20 text-white' : statusStyles.bg
+                  }`}>
+                    {statusIcon}
+                  </div>
                   <div className="flex flex-col items-start gap-0.5">
-                    <span className="text-right">طرد {s.trackingNumber}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-right">طرد {s.trackingNumber}</span>
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${circleStyle.pingClass}`}></span>
+                        <span className={`relative inline-flex rounded-full h-2 w-2 ${circleStyle.bgClass}`}></span>
+                      </span>
+                    </div>
                     <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold block ${
                       isActive 
                         ? 'bg-white/20 text-white' 
                         : `${statusStyles.bg} ${statusStyles.border} border text-[8px]`
                     }`}>
-                    {s.status}
+                      {s.status}
                     </span>
                   </div>
                 </motion.button>
@@ -692,6 +792,10 @@ export default function TrackingView() {
                   status={activeShipment.status}
                   destinationCity={profile?.city || 'بغداد'}
                   trackingNumber={activeShipment.trackingNumber}
+                  transitType={activeShipment.transitType}
+                  transitSpeed={activeShipment.transitSpeed}
+                  transitAltitude={activeShipment.transitAltitude}
+                  simulatedProgress={activeShipment.simulatedProgress}
                 />
               </div>
             )}
@@ -911,6 +1015,165 @@ export default function TrackingView() {
             </p>
           </div>
 
+          {/* Interactive Shipping Cost Table Card */}
+          <div className="bg-white/95 backdrop-blur-xl border border-pink-100 rounded-3xl p-6 shadow-sm space-y-5">
+            <div className="flex items-center gap-2.5 border-b border-pink-100/30 pb-4 justify-between" dir="rtl">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center text-pink-700 shrink-0">
+                  <Calculator className="w-5 h-5 text-pink-600" />
+                </div>
+                <div className="text-right">
+                  <h4 className="font-extrabold text-sm text-gray-800">جدول تقدير الشحن التفاعلي للمحافظات 📊</h4>
+                  <p className="text-[10px] text-gray-400 font-bold">حددي خياراتكِ واعرفي كلفة الشحن لجميع مناطق العراق بدقة!</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 1: Select Source Warehouse */}
+            <div className="space-y-2 text-right" dir="rtl">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block mb-1.5">
+                ١. اختاري مستودع الشحن الدولي:
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'kwt', label: 'مستودع الكويت 🇰🇼', rate: 5000, color: 'border-pink-200 text-pink-700' },
+                  { key: 'tr', label: 'مستودع تركيا 🇹🇷', rate: 11000, color: 'border-amber-200 text-amber-700' },
+                  { key: 'ae', label: 'مستودع دبي 🇦🇪', rate: 12000, color: 'border-sky-200 text-sky-700' },
+                  { key: 'cn', label: 'مستودع الصين 🇨🇳', rate: 16500, color: 'border-purple-200 text-purple-700' },
+                ].map((wh) => {
+                  const isSel = interSource === wh.key;
+                  return (
+                    <button
+                      key={wh.key}
+                      onClick={() => setInterSource(wh.key)}
+                      className={`px-3 py-2.5 rounded-2xl border text-xs font-black transition-all cursor-pointer text-center flex flex-col items-center justify-center gap-1 ${
+                        isSel 
+                          ? 'bg-gradient-to-r from-pink-700 to-pink-500 text-white border-transparent shadow-md scale-[1.02]' 
+                          : 'bg-white hover:bg-pink-50/20 text-gray-700 border-pink-100/40'
+                      }`}
+                    >
+                      <span>{wh.label}</span>
+                      <span className={`text-[10px] font-bold ${isSel ? 'text-white/80' : 'text-gray-400'}`}>
+                        ({wh.rate.toLocaleString()} د.ع/كغم)
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 2: Set Weight */}
+            <div className="space-y-3 text-right" dir="rtl">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block">
+                ٢. حددي وزن الطرد الإجمالي:
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setInterWeight(prev => Math.max(0.1, parseFloat((prev - 0.5).toFixed(1))))}
+                  className="w-9 h-9 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors shrink-0 font-extrabold"
+                >
+                  -0.5
+                </button>
+                <button
+                  onClick={() => setInterWeight(prev => Math.max(0.1, parseFloat((prev - 0.1).toFixed(1))))}
+                  className="w-9 h-9 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors shrink-0 font-extrabold"
+                >
+                  -0.1
+                </button>
+                <div className="flex-1 px-4 py-2 bg-pink-50/20 border border-pink-100/50 rounded-2xl text-center">
+                  <span className="text-sm font-black text-pink-700">{interWeight} كجم</span>
+                </div>
+                <button
+                  onClick={() => setInterWeight(prev => parseFloat((prev + 0.1).toFixed(1)))}
+                  className="w-9 h-9 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors shrink-0 font-extrabold"
+                >
+                  +0.1
+                </button>
+                <button
+                  onClick={() => setInterWeight(prev => parseFloat((prev + 0.5).toFixed(1)))}
+                  className="w-9 h-9 rounded-xl bg-pink-50 border border-pink-100 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors shrink-0 font-extrabold"
+                >
+                  +0.5
+                </button>
+              </div>
+
+              {/* Quick Weight Selectors */}
+              <div className="flex justify-between gap-1 bg-pink-50/30 p-1 rounded-xl">
+                {[0.5, 1.0, 2.0, 5.0, 10.0].map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setInterWeight(w)}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
+                      interWeight === w 
+                        ? 'bg-pink-600 text-white shadow-xs' 
+                        : 'text-gray-500 hover:text-pink-600 hover:bg-white/50'
+                    }`}
+                  >
+                    {w} كغم
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Step 3: Interactive Dynamic Table */}
+            <div className="space-y-2 text-right" dir="rtl">
+              <span className="text-[10px] font-black text-gray-400 uppercase tracking-wider block mb-2">
+                ٣. تقدير التكاليف حسب المحافظات والوجهات:
+              </span>
+              <div className="overflow-hidden border border-pink-100/50 rounded-2xl shadow-xs">
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="bg-pink-50/40 text-[10px] text-pink-950 font-black border-b border-pink-100">
+                      <th className="p-3">المحافظة / المدينة 📍</th>
+                      <th className="p-3 text-center">التوصيل الداخلي</th>
+                      <th className="p-3 text-center">الشحن الدولي</th>
+                      <th className="p-3 text-center text-pink-700 font-extrabold">المجموع الكلي</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-50/30 text-[11px] font-bold text-gray-700 bg-white">
+                    {[
+                      { city: 'بغداد (الحبيبة)', local: 5000, days: '٢٤-٤٨ ساعة' },
+                      { city: 'محافظات الوسط والفرات الأوسط', local: 6000, days: '٢-٣ أيام' },
+                      { city: 'البصرة والفرات الجنوبي', local: 7000, days: '٣-٤ أيام' },
+                      { city: 'المحافظات الشمالية وكردستان', local: 7000, days: '٣-٤ أيام' }
+                    ].map((row, idx) => {
+                      const rate = interSource === 'kwt' ? 5000 : interSource === 'tr' ? 11000 : interSource === 'ae' ? 12000 : 16500;
+                      const intCost = interWeight * rate;
+                      const total = intCost + row.local;
+                      return (
+                        <tr 
+                          key={idx} 
+                          className="hover:bg-pink-50/30 transition-all duration-200"
+                        >
+                          <td className="p-3">
+                            <div className="flex flex-col">
+                              <span className="text-gray-800 font-extrabold text-[12px]">{row.city}</span>
+                              <span className="text-[9px] text-gray-400 font-bold mt-0.5">⏱️ {row.days}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-center text-gray-500">{row.local.toLocaleString()} د.ع</td>
+                          <td className="p-3 text-center text-gray-500">{intCost.toLocaleString()} د.ع</td>
+                          <td className="p-3 text-center bg-pink-50/10">
+                            <span className="text-xs font-black text-pink-700 bg-pink-50/50 px-2.5 py-1 rounded-xl border border-pink-100/50 block">
+                              {total.toLocaleString()} د.ع
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-emerald-50/50 border border-emerald-100/60 p-3.5 rounded-2xl text-right flex gap-2.5 items-start" dir="rtl">
+              <span className="text-emerald-700 shrink-0 mt-0.5 font-bold">💡</span>
+              <p className="text-[10px] text-emerald-900 leading-normal font-bold">
+                حساب الوزن يتم لأقرب <span className="font-black text-emerald-700">100 غرام</span> لتوفير أقصى قدر من الدقة. التكلفة المعروضة شاملة لجمارك وبطاقات الشحن لبيتكِ!
+              </p>
+            </div>
+          </div>
+
           {/* Support Card */}
           <div className="bg-gradient-to-br from-pink-50/50 to-pink-100/30 border border-pink-100/50 rounded-3xl p-6 text-center relative overflow-hidden shadow-sm">
             <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-pink-500/5 rounded-full blur-2xl"></div>
@@ -948,8 +1211,12 @@ export default function TrackingView() {
 
       {/* Modern Deletion Confirmation Dialog */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white border border-pink-100 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scale-up text-right" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setShowDeleteConfirm(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white border border-pink-100 rounded-[32px] p-6 max-w-sm w-full shadow-2xl space-y-4 animate-scale-up text-right max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center text-rose-600">
                 <AlertTriangle className="w-5 h-5" />

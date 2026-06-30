@@ -37,6 +37,10 @@ export interface Shipment {
   origin: string;
   currentLocation: string;
   journey: JourneyStep[];
+  transitType?: 'air' | 'sea';
+  transitSpeed?: number;
+  transitAltitude?: number;
+  simulatedProgress?: number;
 }
 
 export interface Invoice {
@@ -102,6 +106,19 @@ export interface BannerItem {
   subtitle?: string;
 }
 
+export interface SpinWheelPrize {
+  label: string;
+  amount: number;
+  type: 'points' | 'balance';
+}
+
+export interface OfferedService {
+  id: string;
+  title: string;
+  description: string;
+  iconName: string;
+}
+
 export interface AppCustomizations {
   heroImageUrl: string;
   heroTitle: string;
@@ -149,5 +166,8 @@ export interface AppCustomizations {
   invoiceHadooshaImageUrl?: string;
   mastercardExpiry?: string;
   mastercardCvv?: string;
+  spinWheelPrizes?: SpinWheelPrize[];
+  offeredServices?: OfferedService[];
+  features?: Record<string, boolean>;
 }
 

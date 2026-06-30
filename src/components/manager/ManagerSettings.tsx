@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StoreCustomization, PresetProductCustomization, BannerItem } from '../../types';
 import { uploadFileToStorage } from '../../lib/firebase';
@@ -27,6 +27,19 @@ import {
   AlertTriangle,
   Upload
 } from 'lucide-react';
+
+const FEATURE_LABELS: Record<string, { title: string; desc: string; icon: string }> = {
+  loyaltySystem: { title: "برنامج الولاء الملكي", desc: "تفعيل نظام النقاط، الهدايا، والمكافآت للمشترين.", icon: "👑" },
+  aiAssistant: { title: "مساعدة الذكاء الاصطناعي (هدوشة)", desc: "تفعيل مساعدة الدردشة الذكية للإجابة على الزبائن بالذكاء الاصطناعي.", icon: "🤖" },
+  reviews: { title: "تقييمات ومراجعات المنتجات", desc: "السماح للزبائن بإضافة مراجعات وتقييمات للمنتجات في صالة العرض.", icon: "⭐️" },
+  wishlist: { title: "قائمة الأمنيات والمفضلات", desc: "تفعيل خيار حفظ المنتجات في قائمة المفضلة للرجوع إليها لاحقاً.", icon: "💖" },
+  notifications: { title: "نظام الإشعارات المباشرة", desc: "إرسال وتصفح التنببهات المباشرة والعروض الترويجية للزبائن.", icon: "🔔" },
+  flashSales: { title: "عروض التخفيضات السريعة (Flash Sales)", desc: "تفعيل عروض التخفيضات والعد التنازلي للمنتجات المحددة.", icon: "⚡️" },
+  membershipCards: { title: "بطاقة العضوية الرقمية ثلاثية الأبعاد", desc: "توفير بطاقة عضوية VIP قابلة للدوران والتفاعل داخل الملف الشخصي.", icon: "🪪" },
+  referrals: { title: "برنامج الإحالة ومشاركة الأرباح", desc: "تفعيل مكافأة الأصدقاء للحصول على نقاط ورصيد إضافي.", icon: "🔗" },
+  coupons: { title: "بوابة أكواد الخصم والإنقاص", desc: "السماح للزبائن بإدخال أكواد الخصم للحصول على تخفيضات في السلة.", icon: "🎟️" },
+  chatSupport: { title: "مركز الدعم المباشر ومحادثة التاجر", desc: "فتح خط محادثة مباشر وسهل لحل المشاكل وتتبع الشحنات.", icon: "💬" }
+};
 
 export default function ManagerSettings() {
   const { customizations, updateCustomizations } = useApp();
@@ -87,7 +100,36 @@ export default function ManagerSettings() {
     );
   };
 
-  const [activeSubTab, setActiveSubTab] = useState<'ui' | 'shipping_payment' | 'stores' | 'presets'>('ui');
+  const [activeSubTab, setActiveSubTab] = useState<'ui' | 'shipping_payment' | 'stores' | 'presets' | 'spin_wheel' | 'what_we_offer' | 'control_center'>('control_center');
+
+  const [featuresList, setFeaturesList] = useState<Record<string, boolean>>(() => {
+    return customizations.features || {
+      loyaltySystem: true,
+      aiAssistant: true,
+      reviews: true,
+      wishlist: true,
+      notifications: true,
+      flashSales: true,
+      membershipCards: true,
+      referrals: true,
+      coupons: true,
+      chatSupport: true
+    };
+  });
+
+  const handleToggleFeature = async (key: string) => {
+    const updatedFeatures = {
+      ...featuresList,
+      [key]: !featuresList[key]
+    };
+    setFeaturesList(updatedFeatures);
+    
+    setIsSaving(true);
+    await updateCustomizations({ features: updatedFeatures });
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  };
 
   // Saving states
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -136,7 +178,8 @@ export default function ManagerSettings() {
     instagram: customizations.socials?.instagram || '@iramo_store',
     instagramLink: customizations.socials?.instagramLink || 'https://instagram.com/iramo_store',
     facebook: customizations.socials?.facebook || 'fb.com/iramostore',
-    website: customizations.socials?.website || 'www.iramostore.com'
+    website: customizations.socials?.website || 'www.iramostore.com',
+    whatsapp: customizations.socials?.whatsapp || '+9647700000000'
   });
 
   // Iraqi Provinces & delivery rates list
@@ -214,6 +257,32 @@ export default function ManagerSettings() {
   });
   const [bannerToDelete, setBannerToDelete] = useState<BannerItem | null>(null);
 
+  // Spin Wheel prizes states
+  const [spinWheelPrizesList, setSpinWheelPrizesList] = useState<any[]>(() => {
+    return customizations.spinWheelPrizes && customizations.spinWheelPrizes.length > 0
+      ? customizations.spinWheelPrizes
+      : [
+          { label: '50 نقطة ولاء 🎁', amount: 50, type: 'points' },
+          { label: 'حظ أوفر 🌸', amount: 0, type: 'points' },
+          { label: '150 نقطة ولاء ✨', amount: 150, type: 'points' },
+          { label: '5,000 د.ع رصيد 💳', amount: 5000, type: 'balance' },
+          { label: '100 نقطة ولاء 💫', amount: 100, type: 'points' },
+          { label: 'ألف د.ع رصيد محفظة 💰', amount: 1000, type: 'balance' }
+        ];
+  });
+
+  // Offered services states
+  const [offeredServicesList, setOfferedServicesList] = useState<any[]>(() => {
+    return customizations.offeredServices && customizations.offeredServices.length > 0
+      ? customizations.offeredServices
+      : [
+          { id: 'srv_1', title: 'الشحن الجوي السريع', description: 'من الصين والإمارات والكويت وتركيا لباب بيتكِ خلال 7-10 أيام فقط بدقة متناهية ودلال لا ينتهي.', iconName: 'Plane' },
+          { id: 'srv_2', title: 'التسوق بالنيابة عنكِ', description: 'نوفر لكِ خدمة الشراء من كافة المواقع العالمية الفاخرة (Sephora, Shein, Temu) بدون عمولات معقدة.', iconName: 'ShoppingBag' },
+          { id: 'srv_3', title: 'التوصيل الآمن لكافة المحافظات', description: 'شبكة لوجستية متطورة تغطي جميع مدن العراق لضمان وصول شحناتكِ مغلفة وبأفضل حال.', iconName: 'Truck' },
+          { id: 'srv_4', title: 'تتبع الشحنات الذكي 3D', description: 'نظام متطور لمراقبة حركة سفينة أو طائرة الشحن بشكل حي وتفاعلي يواكب تحديثات خط السير.', iconName: 'Compass' }
+        ];
+  });
+
   // Keep local states in sync with database/customizations updates
   React.useEffect(() => {
     if (customizations.banners && customizations.banners.length > 0) {
@@ -231,12 +300,31 @@ export default function ManagerSettings() {
     if (customizations.showStores !== undefined) setShowStores(customizations.showStores);
     if (customizations.showLoyalty !== undefined) setShowLoyalty(customizations.showLoyalty);
     if (customizations.showAnnouncement !== undefined) setShowAnnouncement(customizations.showAnnouncement);
+
+    if (customizations.spinWheelPrizes && customizations.spinWheelPrizes.length > 0) {
+      setSpinWheelPrizesList(customizations.spinWheelPrizes);
+    }
+    if (customizations.offeredServices && customizations.offeredServices.length > 0) {
+      setOfferedServicesList(customizations.offeredServices);
+    }
   }, [customizations]);
 
   // Confirmation Modal States
   const [showPaymentSaveConfirm, setShowPaymentSaveConfirm] = useState<boolean>(false);
   const [storeToDelete, setStoreToDelete] = useState<StoreCustomization | null>(null);
   const [presetToDelete, setPresetToDelete] = useState<PresetProductCustomization | null>(null);
+
+  // Lock body scroll when modals are active
+  useEffect(() => {
+    if (showPaymentSaveConfirm || storeToDelete || presetToDelete || bannerToDelete) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showPaymentSaveConfirm, storeToDelete, presetToDelete, bannerToDelete]);
 
   // Save General settings to Firebase via context
   const handleSaveGeneralSettings = async (e: React.FormEvent) => {
@@ -272,7 +360,8 @@ export default function ManagerSettings() {
         invoiceHadooshaImageUrl,
         mastercardExpiry,
         mastercardCvv,
-        iraqRates: iraqRatesList
+        iraqRates: iraqRatesList,
+        features: featuresList
       });
       setIsSaving(false);
       setSaveSuccess(true);
@@ -486,6 +575,22 @@ export default function ManagerSettings() {
     setTimeout(() => setSaveSuccess(false), 2000);
   };
 
+  const handleSaveSpinWheel = async () => {
+    setIsSaving(true);
+    await updateCustomizations({ spinWheelPrizes: spinWheelPrizesList });
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  };
+
+  const handleSaveOfferedServices = async () => {
+    setIsSaving(true);
+    await updateCustomizations({ offeredServices: offeredServicesList });
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 2000);
+  };
+
   const handleDeleteBanner = async (id: string) => {
     const updatedBanners = bannersList.filter(bn => bn.id !== id);
     setBannersList(updatedBanners);
@@ -496,10 +601,18 @@ export default function ManagerSettings() {
     <div className="space-y-6 pb-24 animate-fade-in" id="manager-settings" dir="rtl">
       
       {/* Sub-Tabs Selector */}
-      <div className="flex bg-white/95 border border-pink-100 p-1 rounded-2xl shadow-sm justify-between gap-1">
+      <div className="grid grid-cols-3 sm:grid-cols-7 bg-white/95 border border-pink-100 p-1 rounded-2xl shadow-sm gap-1">
+        <button
+          onClick={() => setActiveSubTab('control_center')}
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+            activeSubTab === 'control_center' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
+          }`}
+        >
+          🎛️ مركز تحكم الميزات
+        </button>
         <button
           onClick={() => setActiveSubTab('ui')}
-          className={`flex-1 text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
             activeSubTab === 'ui' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
           }`}
         >
@@ -507,7 +620,7 @@ export default function ManagerSettings() {
         </button>
         <button
           onClick={() => setActiveSubTab('shipping_payment')}
-          className={`flex-1 text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
             activeSubTab === 'shipping_payment' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
           }`}
         >
@@ -515,7 +628,7 @@ export default function ManagerSettings() {
         </button>
         <button
           onClick={() => setActiveSubTab('stores')}
-          className={`flex-1 text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
             activeSubTab === 'stores' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
           }`}
         >
@@ -523,11 +636,27 @@ export default function ManagerSettings() {
         </button>
         <button
           onClick={() => setActiveSubTab('presets')}
-          className={`flex-1 text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
             activeSubTab === 'presets' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
           }`}
         >
           💄 معرض المنتجات
+        </button>
+        <button
+          onClick={() => setActiveSubTab('spin_wheel')}
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+            activeSubTab === 'spin_wheel' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
+          }`}
+        >
+          🎡 عجلة الحظ
+        </button>
+        <button
+          onClick={() => setActiveSubTab('what_we_offer')}
+          className={`text-[10px] font-black py-2.5 rounded-xl transition-all cursor-pointer ${
+            activeSubTab === 'what_we_offer' ? 'bg-pink-100 text-pink-800 shadow-xs' : 'text-gray-500 hover:text-pink-700'
+          }`}
+        >
+          ✨ خدماتنا
         </button>
       </div>
 
@@ -1183,7 +1312,7 @@ export default function ManagerSettings() {
           <div className="bg-white border border-pink-100 rounded-3xl p-5 space-y-4 text-right">
             <h3 className="font-black text-sm text-gray-800 flex items-center gap-1.5">
               <LinkIcon className="w-4.5 h-4.5 text-pink-700" />
-              <span>معلومات حساب ورابط الإنستغرام</span>
+              <span>معلومات الحسابات والتواصل الاجتماعي</span>
             </h3>
 
             <div className="grid grid-cols-2 gap-3 text-right">
@@ -1197,7 +1326,7 @@ export default function ManagerSettings() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط حساب الإنستغرام (اختياري)</label>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط حساب الإنستغرام</label>
                 <input 
                   type="text"
                   value={socials.instagramLink || ''}
@@ -1207,6 +1336,29 @@ export default function ManagerSettings() {
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3 text-right">
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">رابط أو اسم صفحة الفيسبوك</label>
+                <input 
+                  type="text"
+                  value={socials.facebook}
+                  onChange={(e) => setSocials({ ...socials, facebook: e.target.value })}
+                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 mb-1">رقم الواتساب (للتواصل السريع)</label>
+                <input 
+                  type="text"
+                  value={socials.whatsapp || ''}
+                  onChange={(e) => setSocials({ ...socials, whatsapp: e.target.value })}
+                  className="w-full bg-gray-50 border-0 focus:bg-white text-xs px-4 py-2.5 rounded-xl font-bold text-left"
+                  placeholder="+964 770 123 4567"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-[10px] font-black text-gray-500 mb-1">رابط الموقع الإلكتروني</label>
               <input 
@@ -1519,10 +1671,292 @@ export default function ManagerSettings() {
         </div>
       )}
 
+      {/* 🎡 SPIN WHEEL SETTINGS SUBTAB */}
+      {activeSubTab === 'spin_wheel' && (
+        <div className="space-y-4 animate-fade-in text-right">
+          <div className="bg-white p-5 border border-pink-100 rounded-[2rem] shadow-xs">
+            <h3 className="font-black text-sm text-pink-950 flex items-center gap-2">
+              🎡 لوحة تحكم جوائز العجلة الدوارة
+            </h3>
+            <p className="text-[11px] text-gray-500 font-medium leading-relaxed mt-2">
+              قومي بتعديل الجوائز الست الظاهرة لزبوناتكِ في عجلة الحظ اليومية. يمكنكِ تعديل اسم الجائزة، قيمتها، وتحديد ما إذا كانت نقاط ولاء تضاف لحسابها أو رصيد مجاني يُشحن مباشرة في محفظتها الإلكترونية بكل حب ودلال! 💕
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {spinWheelPrizesList.map((prize, idx) => (
+              <div 
+                key={idx}
+                className="bg-white/80 backdrop-blur-md border border-pink-100/50 p-4 rounded-3xl shadow-xs space-y-3 hover:border-pink-200 transition-all"
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-pink-50">
+                  <span className="text-xs font-black text-pink-700">📍 الجائزة رقم {idx + 1}</span>
+                  <span className="text-[10px] font-bold text-gray-400">موضع القطاع رقم {idx + 1}</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500 block">نص الجائزة بالكامل (شاملاً الإيموجي) ✍️</label>
+                    <input
+                      type="text"
+                      value={prize.label}
+                      onChange={(e) => {
+                        const updated = [...spinWheelPrizesList];
+                        updated[idx].label = e.target.value;
+                        setSpinWheelPrizesList(updated);
+                      }}
+                      className="w-full text-xs font-bold p-2.5 rounded-xl border border-pink-100 bg-pink-50/10 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      placeholder="مثال: 50 نقطة ولاء 🎁"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500 block">نوع المكافأة الممنوحة 💰</label>
+                    <select
+                      value={prize.type}
+                      onChange={(e) => {
+                        const updated = [...spinWheelPrizesList];
+                        updated[idx].type = e.target.value as 'points' | 'balance';
+                        setSpinWheelPrizesList(updated);
+                      }}
+                      className="w-full text-xs font-bold p-2.5 rounded-xl border border-pink-100 bg-pink-50/10 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                    >
+                      <option value="points">نقاط ولاء (تُضاف لعداد النقاط) ✨</option>
+                      <option value="balance">رصيد حقيقي (يُشحن في محفظة الزبونة) 💳</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500 block">القيمة الرقمية للمكافأة 🔢</label>
+                    <input
+                      type="number"
+                      value={prize.amount}
+                      onChange={(e) => {
+                        const updated = [...spinWheelPrizesList];
+                        updated[idx].amount = Number(e.target.value);
+                        setSpinWheelPrizesList(updated);
+                      }}
+                      className="w-full text-xs font-bold p-2.5 rounded-xl border border-pink-100 bg-pink-50/10 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      placeholder="القيمة الرقمية (مثال: 5000)"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 flex justify-end">
+            <button
+              onClick={handleSaveSpinWheel}
+              className="w-full sm:w-auto bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white font-black text-xs px-10 py-3 rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>حفظ وتطبيق تعديلات عجلة الحظ الدوارة فوراً 🎡✨</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ✨ WHAT WE OFFER SETTINGS SUBTAB */}
+      {activeSubTab === 'what_we_offer' && (
+        <div className="space-y-4 animate-fade-in text-right">
+          <div className="bg-white p-5 border border-pink-100 rounded-[2rem] shadow-xs flex justify-between items-center gap-4">
+            <div>
+              <h3 className="font-black text-sm text-pink-950 flex items-center gap-2">
+                ✨ إدارة خدماتنا (ماذا نقدم)
+              </h3>
+              <p className="text-[11px] text-gray-500 font-medium leading-relaxed mt-1">
+                تحكمي بالكامل في البطاقات التعريفية التي تشرح خدمات التطبيق، أنواع الشحن، والتوصيل لتظهر بجمال ودلال في الصفحة الرئيسية للزبائن.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const newId = 'srv_' + Date.now();
+                setOfferedServicesList([
+                  ...offeredServicesList,
+                  { id: newId, title: 'خدمة جديدة مميزة', description: 'يرجى كتابة التفاصيل والدلال هنا بكل حب لتجذب الزبائن 💕', iconName: 'Sparkles' }
+                ]);
+              }}
+              className="bg-pink-100 hover:bg-pink-200 text-pink-800 font-black text-[10px] px-4 py-2.5 rounded-xl flex items-center gap-1 shrink-0 cursor-pointer shadow-xs"
+            >
+              <span>+ إضافة خدمة جديدة ✨</span>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {offeredServicesList.map((srv, idx) => (
+              <div 
+                key={srv.id}
+                className="bg-white border border-pink-100 p-5 rounded-[2rem] shadow-xs space-y-3 text-right hover:border-pink-200 transition-all relative overflow-hidden"
+              >
+                <div className="flex justify-between items-center pb-2 border-b border-pink-50">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-pink-100 flex items-center justify-center text-pink-800 font-black text-xs">{idx + 1}</span>
+                    <span className="text-xs font-black text-pink-950">بطاقة الخدمة رقم {idx + 1}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const updated = offeredServicesList.filter(item => item.id !== srv.id);
+                      setOfferedServicesList(updated);
+                    }}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-xl transition-all font-black text-[10px] flex items-center gap-1 cursor-pointer border border-red-100/50"
+                  >
+                    <span>إزالة البطاقة 🗑️</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500 block">عنوان الخدمة أو الميزة 🏷️</label>
+                    <input
+                      type="text"
+                      value={srv.title}
+                      onChange={(e) => {
+                        const updated = [...offeredServicesList];
+                        updated[idx].title = e.target.value;
+                        setOfferedServicesList(updated);
+                      }}
+                      className="w-full text-xs font-bold p-2.5 rounded-xl border border-pink-100 bg-pink-50/10 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                      placeholder="مثال: الشحن الجوي السريع"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-gray-500 block">الأيقونة التعبيرية (Lucide-React) 🎨</label>
+                    <select
+                      value={srv.iconName}
+                      onChange={(e) => {
+                        const updated = [...offeredServicesList];
+                        updated[idx].iconName = e.target.value;
+                        setOfferedServicesList(updated);
+                      }}
+                      className="w-full text-xs font-bold p-2.5 rounded-xl border border-pink-100 bg-pink-50/10 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                    >
+                      <option value="Plane">طائرة ✈️ (Plane)</option>
+                      <option value="ShoppingBag">حقيبة تسوق 🛍️ (ShoppingBag)</option>
+                      <option value="Truck">شاحنة توصيل 🚚 (Truck)</option>
+                      <option value="Compass">بوصلة / تتبع 🗺️ (Compass)</option>
+                      <option value="Sparkles">بريق الجمال ✨ (Sparkles)</option>
+                      <option value="Gift">هدية مميزة 🎁 (Gift)</option>
+                      <option value="Heart">قلب حب 💖 (Heart)</option>
+                      <option value="Smile">ابتسامة ودلال 😊 (Smile)</option>
+                      <option value="ShoppingCart">عربة تسوق 🛒 (ShoppingCart)</option>
+                      <option value="Award">جائزة / ولاء 🏆 (Award)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1 md:col-span-3">
+                    <label className="text-[10px] font-black text-gray-500 block">تفاصيل ووصف الخدمة بالكامل 📝</label>
+                    <textarea
+                      rows={2}
+                      value={srv.description}
+                      onChange={(e) => {
+                        const updated = [...offeredServicesList];
+                        updated[idx].description = e.target.value;
+                        setOfferedServicesList(updated);
+                      }}
+                      className="w-full text-xs font-bold p-2.5 rounded-xl border border-pink-100 bg-pink-50/10 focus:ring-1 focus:ring-pink-500 focus:outline-none resize-none"
+                      placeholder="اكتبي الوصف هنا بكل جاذبية ودلال..."
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-4 flex justify-end">
+            <button
+              onClick={handleSaveOfferedServices}
+              className="w-full sm:w-auto bg-gradient-to-r from-pink-700 to-rose-600 hover:from-pink-800 hover:to-rose-700 text-white font-black text-xs px-10 py-3 rounded-2xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-2"
+            >
+              <span>حفظ وتطبيق بطاقات خدماتنا فوراً 🚀✨</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎛️ SITE CONTROL CENTER SUBTAB */}
+      {activeSubTab === 'control_center' && (
+        <div className="space-y-6 animate-fade-in text-right">
+          <div className="bg-gradient-to-r from-pink-800 to-pink-950 text-white p-6 rounded-[2rem] relative overflow-hidden shadow-xl border border-pink-900/40">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="space-y-1.5 z-10 relative">
+              <span className="text-[8px] font-black text-pink-300 bg-pink-500/25 py-1 px-3 rounded-full uppercase border border-pink-500/30">
+                MASTER ADMIN CONTROL 👑
+              </span>
+              <h3 className="font-extrabold text-sm leading-snug">
+                لوحة تحكم وتفعيل ميزات الموقع الفائقة 🎛️
+              </h3>
+              <p className="text-[10px] text-pink-100 leading-relaxed font-semibold">
+                تمكّنكِ هذه اللوحة من تشغيل أو إيقاف أي ميزة من ميزات متجر إيرامو الفاخر بضغطة زر واحدة ومزامنتها فوراً وبشكل حي مع بوابات زبائنكِ دون الحاجة لتعديل أي كود برمجي.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white border border-pink-100 rounded-[2.5rem] p-6 shadow-sm space-y-4">
+            <h4 className="text-xs font-black text-pink-950 pb-2 border-b border-pink-50">قائمة ميزات النظام التفاعلية:</h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.keys(featuresList).map((key) => {
+                const label = FEATURE_LABELS[key] || {
+                  title: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) + " (تلقائي)",
+                  desc: "ميزة مضافة حديثاً تلقائياً للتفعيل والتعطيل.",
+                  icon: "⚙️"
+                };
+                const isActive = featuresList[key];
+
+                return (
+                  <div 
+                    key={key} 
+                    className={`p-4 rounded-3xl border transition-all flex items-start gap-3 text-right hover:shadow-sm ${
+                      isActive 
+                        ? 'bg-pink-50/20 border-pink-100/80' 
+                        : 'bg-gray-50/50 border-gray-100'
+                    }`}
+                  >
+                    <span className="text-xl shrink-0 p-2 bg-white rounded-2xl shadow-xs border border-pink-50">{label.icon}</span>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-black text-pink-950 truncate">{label.title}</span>
+                        
+                        {/* Switch component */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleFeature(key)}
+                          className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            isActive ? 'bg-pink-600' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                              isActive ? '-translate-x-5' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-gray-500 font-bold leading-relaxed">{label.desc}</p>
+                      <div className="flex items-center gap-1.5 pt-1">
+                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'}`} />
+                        <span className={`text-[9px] font-black ${isActive ? 'text-emerald-700' : 'text-red-500'}`}>
+                          {isActive ? 'نشط ويعمل بالكامل لدى الزبائن ✓' : 'معطل ومخفي بالكامل عن الزبائن ✕'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Modal for Payment and Rates Save */}
       {showPaymentSaveConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-pink-100" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowPaymentSaveConfirm(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-pink-100 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 bg-pink-50 text-pink-700 rounded-full flex items-center justify-center mx-auto border border-pink-100/50">
               <AlertTriangle className="w-7 h-7" />
             </div>
@@ -1552,8 +1986,12 @@ export default function ManagerSettings() {
 
       {/* Confirmation Modal for Store/Department Deletion */}
       {storeToDelete && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setStoreToDelete(null)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto border border-red-100/50">
               <AlertTriangle className="w-7 h-7" />
             </div>
@@ -1587,8 +2025,12 @@ export default function ManagerSettings() {
 
       {/* Confirmation Modal for Preset Product Deletion */}
       {presetToDelete && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setPresetToDelete(null)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto border border-red-100/50">
               <AlertTriangle className="w-7 h-7" />
             </div>
@@ -1622,8 +2064,12 @@ export default function ManagerSettings() {
 
       {/* Confirmation Modal for Banner Deletion */}
       {bannerToDelete && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setBannerToDelete(null)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-sm rounded-[32px] p-6 shadow-2xl text-center space-y-4 border border-red-50 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-14 h-14 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto border border-red-100/50">
               <AlertTriangle className="w-7 h-7" />
             </div>

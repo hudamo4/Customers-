@@ -83,17 +83,32 @@ const PRESET_PRODUCTS = [
 ];
 
 export default function ManagerInvoices() {
-  const { invoices, addInvoice, deleteInvoice, customizations } = useApp();
+  const { invoices, addInvoice, deleteInvoice, clearAllInvoices, customizations } = useApp();
   
   const presetProductsToUse = customizations?.presetProducts && customizations.presetProducts.length > 0
     ? customizations.presetProducts
     : PRESET_PRODUCTS;
 
   const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  const handleClearAllInvoices = async () => {
+    if (confirm('⚠️ تحذير خطير: هل أنتِ متأكدة فعلاً من رغبتكِ في مسح كافة الفواتير من التطبيق وقاعدة البيانات بشكل نهائي ودون رجعة؟')) {
+      if (confirm('تأكيد أخير: لن تتمكني من استعادة أي فاتورة بعد المسح. هل تريدين الاستمرار؟')) {
+        try {
+          await clearAllInvoices();
+          alert('تم مسح كافة الفواتير بنجاح 🌸');
+        } catch (err) {
+          console.error("Failed to clear all invoices:", err);
+          alert('حدث خطأ أثناء مسح الفواتير.');
+        }
+      }
+    }
+  };
   const [selectedFilter, setSelectedFilter] = useState<string>('all');
   
   // Create state
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [selectedUserId, setSelectedUserId] = useState<string>('local_user');
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [customerCity, setCustomerCity] = useState<string>('بغداد');
@@ -116,9 +131,33 @@ export default function ManagerInvoices() {
   // Delete invoice target
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+  // Lock body scroll when modals are active
   useEffect(() => {
-    if (showAddModal && !newOrderId) {
-      setNewOrderId('TR-' + Math.floor(100000 + Math.random() * 900000));
+    if (showAddModal || deleteTargetId || selectedInvoiceForPrinting) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showAddModal, deleteTargetId, selectedInvoiceForPrinting]);
+
+  useEffect(() => {
+    if (showAddModal) {
+      const prefilled = (window as any).prefilledCustomerForAction;
+      if (prefilled) {
+        setCustomerName(prefilled.name || '');
+        setCustomerPhone(prefilled.phone || '');
+        setCustomerCity(prefilled.city || 'بغداد');
+        setSelectedUserId(prefilled.uid || 'local_user');
+        delete (window as any).prefilledCustomerForAction;
+      } else {
+        setSelectedUserId('local_user');
+      }
+      if (!newOrderId) {
+        setNewOrderId('TR-' + Math.floor(100000 + Math.random() * 900000));
+      }
     }
   }, [showAddModal]);
 
@@ -205,7 +244,7 @@ export default function ManagerInvoices() {
     const generatedInvId = `INV-${Math.floor(1000 + Math.random() * 9000)}`;
     const newInvObj: Invoice = {
       id: `local_inv_${Date.now()}`,
-      userId: 'local_user',
+      userId: selectedUserId,
       invoiceId: generatedInvId,
       store: newStore,
       order_id: newOrderId,
@@ -272,13 +311,22 @@ export default function ManagerInvoices() {
             </div>
             <h3 className="font-black text-sm text-gray-800">إدارة الفواتير والتحصيل</h3>
           </div>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-pink-700 to-rose-600 text-white px-4 py-2.5 rounded-2xl text-[11px] font-black hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-md shadow-pink-500/10"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>إنشاء فاتورة جديدة 🛍️</span>
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleClearAllInvoices}
+              className="flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3.5 py-2 rounded-xl text-[10px] font-black hover:bg-red-100 active:scale-95 transition-all cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-3.5 h-3.5 shrink-0" />
+              <span>مسح كل الفواتير 🗑️</span>
+            </button>
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-pink-700 to-rose-600 text-white px-4 py-2.5 rounded-2xl text-[11px] font-black hover:opacity-90 active:scale-95 transition-all cursor-pointer shadow-md shadow-pink-500/10"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>إنشاء فاتورة جديدة 🛍️</span>
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -416,8 +464,12 @@ export default function ManagerInvoices() {
 
       {/* Add Invoice Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-[36px] p-6 shadow-2xl space-y-4 text-right border border-pink-100 max-h-[90vh] overflow-y-auto scrollbar-thin" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowAddModal(false)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-lg rounded-[36px] p-6 shadow-2xl space-y-4 text-right border border-pink-100 max-h-[90vh] overflow-y-auto scrollbar-thin" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center pb-3 border-b border-pink-50">
               <div className="flex items-center gap-2">
                 <div className="bg-pink-100 p-1.5 rounded-xl text-pink-700">
@@ -690,6 +742,30 @@ export default function ManagerInvoices() {
                               className="w-full bg-white border border-gray-200 text-[9px] px-2 py-1 rounded font-mono focus:outline-none focus:border-pink-300"
                             />
                           </div>
+
+                          {/* Custom File Upload Option */}
+                          <div className="pt-1 border-t border-dashed border-pink-100/50 mt-1.5">
+                            <label className="block text-[8px] font-bold text-gray-500 mb-0.5">أو ارفعي صورة مخصصة من جهازكِ مباشرة:</label>
+                            <input 
+                              type="file"
+                              accept="image/*"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  try {
+                                    handleUpdateItemValue(index, 'image', 'جاري الرفع... ⏳');
+                                    const { uploadFileToStorage } = await import('../../lib/firebase');
+                                    const url = await uploadFileToStorage(file, `invoices/${Date.now()}`);
+                                    handleUpdateItemValue(index, 'image', url);
+                                  } catch (err) {
+                                    console.error("Custom image upload failed:", err);
+                                    handleUpdateItemValue(index, 'image', '');
+                                  }
+                                }
+                              }}
+                              className="block w-full text-[8px] text-gray-500 file:mr-2 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[7.5px] file:font-semibold file:bg-pink-100 file:text-pink-700 hover:file:bg-pink-200 cursor-pointer"
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -808,6 +884,8 @@ export default function ManagerInvoices() {
                 }
                 #printable-voucher-manager, #printable-voucher-manager * {
                   visibility: visible !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
                 #printable-voucher-manager {
                   position: absolute !important;
@@ -821,6 +899,8 @@ export default function ManagerInvoices() {
                   margin: 0 !important;
                   padding: 10px !important;
                   background-color: white !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
                 .no-print {
                   display: none !important;
@@ -1061,8 +1141,12 @@ export default function ManagerInvoices() {
 
       {/* Delete Invoice Confirmation Alert */}
       {deleteTargetId && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center space-y-4 border border-red-50" dir="rtl">
+        <div className="fixed inset-0 z-[99998] bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setDeleteTargetId(null)}>
+          <div 
+            className="fixed z-[99999] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center space-y-4 border border-red-50 max-h-[90vh] overflow-y-auto" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
