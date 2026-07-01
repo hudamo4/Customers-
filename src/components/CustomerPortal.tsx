@@ -49,6 +49,7 @@ import Elegant3DSpinWheel from './Elegant3DSpinWheel';
 import DailyRewardWheel from './features/DailyRewardWheel';
 import AIBeautyConsultant from './features/AIBeautyConsultant';
 import IramoWaxSeal from './IramoWaxSeal';
+import NotificationsView from './NotificationsView';
 import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 
 // Use same interface for products
@@ -189,7 +190,7 @@ interface CustomerPortalProps {
   showAdminPasscode: () => void;
 }
 
-type MainTab = 'home' | 'shop' | 'orders' | 'wishlist' | 'profile';
+type MainTab = 'home' | 'shop' | 'orders' | 'wishlist' | 'profile' | 'notifications';
 
 export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: CustomerPortalProps) {
   const { 
@@ -206,6 +207,7 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
   } = useApp();
 
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('shop'); // Start on shop by default
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactSupportModal, setShowContactSupportModal] = useState<boolean>(false);
   const [secretClicks, setSecretClicks] = useState<number>(0);
@@ -245,7 +247,7 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
     if (isLoggedIn && !prevLoggedIn.current) {
       setActiveMainTab('orders'); // Open "طلباتي" (Invoices & Shipments) automatically on login
     } else if (!isLoggedIn) {
-      if (activeMainTab !== 'shop' && activeMainTab !== 'profile' && activeMainTab !== 'orders' && activeMainTab !== 'home') {
+      if (activeMainTab !== 'shop' && activeMainTab !== 'profile' && activeMainTab !== 'orders' && activeMainTab !== 'home' && activeMainTab !== 'notifications') {
         setActiveMainTab('shop'); // Default to store when logged out
       }
     }
@@ -618,6 +620,23 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
             {cart.length > 0 && (
               <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-600 text-white text-[8px] font-black flex items-center justify-center animate-bounce">
                 {cart.length}
+              </span>
+            )}
+          </button>
+
+          {/* Notification Bell Icon trigger */}
+          <button 
+            onClick={() => { triggerLightHaptic(); setActiveMainTab('notifications'); }}
+            className={`w-9 h-9 rounded-full flex items-center justify-center relative transition-all active:scale-90 cursor-pointer ${
+              activeMainTab === 'notifications' 
+                ? 'bg-pink-600 text-white shadow-md' 
+                : 'bg-pink-50 hover:bg-pink-100/70 text-pink-700'
+            }`}
+          >
+            <Bell className="w-4.5 h-4.5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4.5 h-4.5 rounded-full bg-rose-600 text-white text-[8px] font-black flex items-center justify-center animate-pulse">
+                {unreadCount}
               </span>
             )}
           </button>
@@ -1493,6 +1512,19 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
                   </button>
                 </div>
               </div>
+            </motion.div>
+          )}
+
+          {/* NOTIFICATIONS TAB */}
+          {activeMainTab === 'notifications' && (
+            <motion.div 
+              key="notifications"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 space-y-5"
+            >
+              <NotificationsView />
             </motion.div>
           )}
 
