@@ -119,8 +119,28 @@ const AVAILABLE_STORES = [
 ];
 
 export default function ProfileView() {
-  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode, logout, user } = useApp();
+  const { profile, shipments, updateProfile, redeemPoints, setActiveTab, customizations, updateAvatar, setAppMode, logout, user, updateNotificationPreferences } = useApp();
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [showNotificationSettingsModal, setShowNotificationSettingsModal] = useState<boolean>(false);
+
+  const currentPrefs = profile?.notificationPreferences || {
+    shipment: true,
+    invoice: true,
+    loyalty: true,
+    promotion: true,
+    announcement: true,
+    support: true
+  };
+
+  const handleTogglePref = async (key: string) => {
+    triggerLightHaptic();
+    const newPrefs = {
+      ...currentPrefs,
+      [key]: currentPrefs[key as keyof typeof currentPrefs] === false ? true : false
+    };
+    await updateNotificationPreferences(newPrefs);
+  };
+
   const [name, setName] = useState<string>(profile?.name || '');
   const [phone, setPhone] = useState<string>(profile?.phone || '');
   const [city, setCity] = useState<string>(profile?.city || '');
@@ -695,7 +715,10 @@ export default function ProfileView() {
             <ChevronLeft className="w-4 h-4 text-gray-300" />
           </div>
 
-          <div className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors">
+          <div 
+            onClick={() => { triggerLightHaptic(); setShowNotificationSettingsModal(true); }}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors"
+          >
             <div className="flex items-center gap-4">
               <Bell className="w-5 h-5 text-gray-500 group-hover:text-pink-700" />
               <span className="text-xs font-semibold text-gray-700">إعدادات التنبيهات المباشرة</span>
@@ -1708,6 +1731,86 @@ export default function ProfileView() {
               className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 font-black rounded-2xl text-xs active:scale-[0.98] transition-all"
             >
               إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Settings Modal */}
+      {showNotificationSettingsModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in text-right" dir="rtl">
+          <div className="bg-white w-full max-w-md h-[80vh] sm:h-[75vh] rounded-t-3xl sm:rounded-3xl shadow-2xl p-6 flex flex-col overflow-hidden border border-pink-100 animate-slide-up space-y-4">
+            
+            <div className="flex justify-between items-center pb-3 border-b border-pink-50">
+              <h3 className="font-extrabold text-pink-700 text-sm flex items-center gap-2">
+                <Bell className="w-5 h-5 text-pink-700" /> إعدادات التنبيهات المباشرة 🔔
+              </h3>
+              <button 
+                onClick={() => setShowNotificationSettingsModal(false)}
+                className="w-8 h-8 rounded-full bg-pink-50 flex items-center justify-center text-pink-700 hover:bg-pink-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Pixar-inspired mascot banner */}
+            <div className="bg-pink-50/50 p-4.5 rounded-2xl border border-pink-100/30 flex items-center gap-4.5">
+              <div className="w-14 h-14 bg-white rounded-2xl overflow-hidden p-1 shrink-0 shadow-sm">
+                <img
+                  alt="Batoot Mascot"
+                  className="w-full h-full object-contain"
+                  src="https://lh3.googleusercontent.com/aida/AP1WRLtwlTtxpvh7CFWTWdRY_emR2xyBvTgx8v6zMnJSM8OrvnGrHK98fOcbdnwqMhudLD35tXhQRA9VBIsbRPIxBCWcjiseBr_ZThUYOO2bASORtpBXsEwGUlke9kqXDQGVw-0hzUjOQZGvkAbigP02pHzK4tU63vK7UVYFj3MEl6UjVilDvrlHzDZhs-o55NTjiE4kAtBK7MfYbaxsU0axIHNlMxqsY-z3Mq4P6X0iHTAI-TEqMLAdFD53L8"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+              <div className="flex-1 text-right">
+                <p className="text-[11px] text-pink-800 font-extrabold leading-relaxed">
+                  "عزيزتي الأنيقة، يمكنكِ التحكم الكامل بنوعية الرسائل والتنبيهات التي تصلكِ لضمان تجربة تسوق مريحة وملكية خالية من الإزعاج! 👑💖"
+                </p>
+                <p className="text-[10px] text-pink-500 font-black mt-1">— المساعد بطوط الذكي</p>
+              </div>
+            </div>
+
+            {/* Toggles Container */}
+            <div className="flex-1 overflow-y-auto space-y-3.5 pr-1 py-1">
+              {Object.entries({
+                shipment: { label: 'تنبيهات الشحن والتوصيل 📦', desc: 'متابعة حركة طرودكِ وخط السير لحظة بلحظة' },
+                invoice: { label: 'تنبيهات الفواتير والمدفوعات 💳', desc: 'إشعارات الدفع المعتمد وتأكيد تسديد الفواتير' },
+                loyalty: { label: 'تنبيهات نقاط الولاء والجوائز 🎁', desc: 'هدايا العجلات اليومية واستبدال النقاط بالخصومات' },
+                promotion: { label: 'تنبيهات العروض والخصومات 🛍️', desc: 'حملات التنزيلات والخصومات الحصرية الفورية' },
+                announcement: { label: 'الإعلانات العامة وأخبار المتجر 📢', desc: 'تحديثات هدى السلطاني وتنبيهات العائلة الكبرى' },
+                support: { label: 'تحديثات الدعم الفني والمساعدين 💬', desc: 'ردود طاقم الدعم المباشر ومحادثات هدوشة وبطوط' }
+              }).map(([key, item]) => {
+                const isEnabled = currentPrefs[key as keyof typeof currentPrefs] !== false;
+                return (
+                  <div key={key} className="flex items-center justify-between p-4 bg-white border border-pink-100/50 rounded-2xl hover:border-pink-200 transition-colors shadow-sm text-right">
+                    <div className="flex items-start gap-3 text-right">
+                      <div className="text-right">
+                        <h4 className="font-extrabold text-xs text-gray-800">{item.label}</h4>
+                        <p className="text-[10px] text-gray-400 font-bold mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleTogglePref(key)}
+                      className="w-12 h-6.5 rounded-full relative transition-colors duration-300 cursor-pointer shrink-0"
+                      style={{ backgroundColor: isEnabled ? '#D97A9A' : '#E5E7EB' }}
+                    >
+                      <div 
+                        className="w-4.5 h-4.5 rounded-full bg-white shadow-sm absolute top-1 transition-all duration-300" 
+                        style={{ right: isEnabled ? '4px' : '24px' }}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Modal Footer */}
+            <button 
+              onClick={() => setShowNotificationSettingsModal(false)}
+              className="w-full py-3.5 bg-pink-700 hover:bg-pink-800 text-white font-extrabold rounded-2xl text-xs active:scale-[0.98] transition-all cursor-pointer shadow-md"
+            >
+              حفظ وتأكيد الإعدادات ✨
             </button>
           </div>
         </div>

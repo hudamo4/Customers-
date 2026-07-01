@@ -207,7 +207,16 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
   } = useApp();
 
   const [activeMainTab, setActiveMainTab] = useState<MainTab>('shop'); // Start on shop by default
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
+  const unreadCount = useMemo(() => {
+    return notifications.filter((n) => {
+      if (n.read) return false;
+      if (profile?.notificationPreferences) {
+        const isEnabled = profile.notificationPreferences[n.type] !== false; // default to true
+        if (!isEnabled) return false;
+      }
+      return true;
+    }).length;
+  }, [notifications, profile?.notificationPreferences]);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showContactSupportModal, setShowContactSupportModal] = useState<boolean>(false);
   const [secretClicks, setSecretClicks] = useState<number>(0);

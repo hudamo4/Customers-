@@ -13,7 +13,8 @@ export default function NotificationsView() {
     shipments, 
     updateShipmentStatus, 
     addNotification, 
-    customizations 
+    customizations,
+    profile
   } = useApp();
   
   const [activeFilter, setActiveFilter] = useState<'all' | 'shipment' | 'invoice' | 'offer'>('all');
@@ -21,6 +22,12 @@ export default function NotificationsView() {
   const [alertToast, setAlertToast] = useState({ show: false, title: '', message: '' });
 
   const filteredNotifications = notifications.filter((notif) => {
+    // Apply user's custom notification preferences
+    if (profile?.notificationPreferences) {
+      const isEnabled = profile.notificationPreferences[notif.type] !== false; // default to true
+      if (!isEnabled) return false;
+    }
+
     // Apply filter tab
     let matchesFilter = true;
     if (activeFilter === 'offer') {

@@ -13,6 +13,7 @@ export interface UserProfile {
   customerId?: string;
   role?: string;
   password?: string;
+  notificationPreferences?: Record<string, boolean>;
 }
 
 export interface JourneyStep {

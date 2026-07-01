@@ -49,6 +49,7 @@ interface AppContextType {
   rateInvoice: (invoiceId: string, rating: number, comment?: string) => Promise<void>;
   updateCustomizations: (cust: Partial<AppCustomizations>) => Promise<void>;
   updateAvatar: (avatar: string) => Promise<void>;
+  updateNotificationPreferences: (prefs: Record<string, boolean>) => Promise<void>;
   isLoggedIn: boolean;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
@@ -707,6 +708,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateNotificationPreferences = async (prefs: Record<string, boolean>) => {
+    // 1. Update state immediately
+    if (profile) {
+      setProfile({
+        ...profile,
+        notificationPreferences: prefs
+      });
+    }
+
+    // 2. Sync to Firestore
+    if (!user) return;
+    const userDocRef = doc(db, 'users', user.uid);
+    try {
+      await updateDoc(userDocRef, {
+        notificationPreferences: prefs
+      });
+    } catch (error) {
+      console.warn("Firestore notification preferences update failed:", error);
+    }
+  };
+
   const markAllNotificationsAsRead = async () => {
     // 1. Update state immediately
     const updated = notifications.map(n => ({ ...n, read: true }));
@@ -1208,7 +1230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         accountStatus: 'active',
         totalOrders: 0,
         totalSpent: 0,
-        loyaltyPoints: 0
+        loyaltyPoints: 500
       };
       await setDoc(doc(db, 'customers', usernameClean), newCustomerDoc);
 
@@ -1221,7 +1243,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         password: password,
         role: 'customer',
         membership: 'عضوية أساسية',
-        points: 0,
+        points: 500,
         walletBalance: 0,
         city: cityClean,
         avatar: profileImage
@@ -1229,6 +1251,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'users', authUser.uid), newProfile);
 
       await seedInitialDataIfEmpty(authUser.uid);
+
+      // Add welcome notification for the user giving them 500 loyalty points
+      try {
+        await addDoc(collection(db, 'notifications'), {
+          userId: authUser.uid,
+          notificationId: `welcome_points_${Date.now()}`,
+          type: 'loyalty',
+          title: 'هدية ترحيبية ملكية! 🎉 +500 نقطة ولاء',
+          content: `أهلاً بكِ ${nameClean} في إيرامو ستور! بمناسبة تسجيلكِ، تم إهدائكِ 500 نقطة ولاء ترحيبية لتجربة تسوق راقية وفريدة 👑💖`,
+          time: 'الآن',
+          icon: 'Gift',
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      } catch (e) {
+        console.warn("Could not create user welcome notification:", e);
+      }
 
       // Add admin notification for new user signup
       try {
@@ -1318,6 +1357,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         rateInvoice,
         updateCustomizations,
         updateAvatar,
+        updateNotificationPreferences,
         isLoggedIn,
         showLoginModal,
         setShowLoginModal,
