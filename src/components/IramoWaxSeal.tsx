@@ -20,7 +20,7 @@ export default function IramoWaxSeal({ className = '', size = 110 }: IramoWaxSea
           {/* Real 3D Wax Shadow */}
           <filter id="wax-depth" x="-10%" y="-10%" width="125%" height="125%">
             <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#8e4a49" floodOpacity="0.3" />
-            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#ffe4e6" floodOpacity="0.7" input="SourceGraphic" />
+            <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#ffe4e6" floodOpacity="0.7" in="SourceGraphic" />
           </filter>
 
           {/* 3D Emboss Filter */}

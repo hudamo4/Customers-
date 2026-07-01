@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { StoreCustomization, PresetProductCustomization, BannerItem } from '../../types';
 import { uploadFileToStorage } from '../../lib/firebase';
+import FeatureControlCenter from './FeatureControlCenter';
 import { 
   Settings, 
   Eye, 
@@ -1876,77 +1877,7 @@ export default function ManagerSettings() {
 
       {/* 🎛️ SITE CONTROL CENTER SUBTAB */}
       {activeSubTab === 'control_center' && (
-        <div className="space-y-6 animate-fade-in text-right">
-          <div className="bg-gradient-to-r from-pink-800 to-pink-950 text-white p-6 rounded-[2rem] relative overflow-hidden shadow-xl border border-pink-900/40">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="space-y-1.5 z-10 relative">
-              <span className="text-[8px] font-black text-pink-300 bg-pink-500/25 py-1 px-3 rounded-full uppercase border border-pink-500/30">
-                MASTER ADMIN CONTROL 👑
-              </span>
-              <h3 className="font-extrabold text-sm leading-snug">
-                لوحة تحكم وتفعيل ميزات الموقع الفائقة 🎛️
-              </h3>
-              <p className="text-[10px] text-pink-100 leading-relaxed font-semibold">
-                تمكّنكِ هذه اللوحة من تشغيل أو إيقاف أي ميزة من ميزات متجر إيرامو الفاخر بضغطة زر واحدة ومزامنتها فوراً وبشكل حي مع بوابات زبائنكِ دون الحاجة لتعديل أي كود برمجي.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white border border-pink-100 rounded-[2.5rem] p-6 shadow-sm space-y-4">
-            <h4 className="text-xs font-black text-pink-950 pb-2 border-b border-pink-50">قائمة ميزات النظام التفاعلية:</h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {Object.keys(featuresList).map((key) => {
-                const label = FEATURE_LABELS[key] || {
-                  title: key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()) + " (تلقائي)",
-                  desc: "ميزة مضافة حديثاً تلقائياً للتفعيل والتعطيل.",
-                  icon: "⚙️"
-                };
-                const isActive = featuresList[key];
-
-                return (
-                  <div 
-                    key={key} 
-                    className={`p-4 rounded-3xl border transition-all flex items-start gap-3 text-right hover:shadow-sm ${
-                      isActive 
-                        ? 'bg-pink-50/20 border-pink-100/80' 
-                        : 'bg-gray-50/50 border-gray-100'
-                    }`}
-                  >
-                    <span className="text-xl shrink-0 p-2 bg-white rounded-2xl shadow-xs border border-pink-50">{label.icon}</span>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs font-black text-pink-950 truncate">{label.title}</span>
-                        
-                        {/* Switch component */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleFeature(key)}
-                          className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            isActive ? 'bg-pink-600' : 'bg-gray-300'
-                          }`}
-                        >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                              isActive ? '-translate-x-5' : 'translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-gray-500 font-bold leading-relaxed">{label.desc}</p>
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'}`} />
-                        <span className={`text-[9px] font-black ${isActive ? 'text-emerald-700' : 'text-red-500'}`}>
-                          {isActive ? 'نشط ويعمل بالكامل لدى الزبائن ✓' : 'معطل ومخفي بالكامل عن الزبائن ✕'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <FeatureControlCenter />
       )}
 
       {/* Confirmation Modal for Payment and Rates Save */}

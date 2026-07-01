@@ -127,6 +127,11 @@ export interface AppCustomizations {
   showStores: boolean;
   showLoyalty: boolean;
   showOnboarding?: boolean;
+  onboardingSlides?: {
+    title: string;
+    subtitle: string;
+    bgImage: string;
+  }[];
   showBanners: boolean;
   announcementText: string;
   showAnnouncement: boolean;

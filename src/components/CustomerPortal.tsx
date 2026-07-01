@@ -46,6 +46,8 @@ import TrackingView from './TrackingView';
 import ShippingCalculator from './ShippingCalculator';
 import CurrencyConverter from './CurrencyConverter';
 import Elegant3DSpinWheel from './Elegant3DSpinWheel';
+import DailyRewardWheel from './features/DailyRewardWheel';
+import AIBeautyConsultant from './features/AIBeautyConsultant';
 import IramoWaxSeal from './IramoWaxSeal';
 import { triggerLightHaptic, triggerMediumHaptic, triggerSuccessHaptic, triggerWarningHaptic } from '../utils/haptics';
 
@@ -243,7 +245,7 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
     if (isLoggedIn && !prevLoggedIn.current) {
       setActiveMainTab('orders'); // Open "طلباتي" (Invoices & Shipments) automatically on login
     } else if (!isLoggedIn) {
-      if (activeMainTab !== 'shop' && activeMainTab !== 'profile') {
+      if (activeMainTab !== 'shop' && activeMainTab !== 'profile' && activeMainTab !== 'orders' && activeMainTab !== 'home') {
         setActiveMainTab('shop'); // Default to store when logged out
       }
     }
@@ -252,6 +254,7 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
 
   // Customer sub-pages (controlled internally for deep-dive customer screens)
   const [selectedProduct, setSelectedProduct] = useState<IramoProduct | null>(null);
+  const [activeFeatureView, setActiveFeatureView] = useState<'wheel' | 'beauty' | null>(null);
   
   // Feature gating helper
   const isFeatureEnabled = (featureName: string) => {
@@ -277,8 +280,8 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
   // New Checkout Fields
   const [giftWrapping, setGiftWrapping] = useState<boolean>(false);
   const [sellerNotes, setSellerNotes] = useState<string>('');
-  const [shippingMethod, setShippingMethod] = useState<'express' | 'sea'>('express');
-  const [paymentMethod, setPaymentMethod] = useState<'zain' | 'card' | 'cod'>('cod');
+  const [shippingMethod, setShippingMethod] = useState<'express' | 'sea' | 'standard'>('express');
+  const [paymentMethod, setPaymentMethod] = useState<'zain' | 'zaincash' | 'card' | 'cod'>('cod');
 
   const [activeBannerIndex, setActiveBannerIndex] = useState<number>(0);
   const [countdown, setCountdown] = useState({ hours: 4, minutes: 23, seconds: 15 });
@@ -711,6 +714,50 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
                   >
                     استبدال النقاط 🎁
                   </button>
+                </div>
+              )}
+
+              {/* Premium AI Experiences and Rewards Grid */}
+              {(isFeatureEnabled('aiBeautyConsultant') || isFeatureEnabled('dailyRewardWheel')) && (
+                <div className="space-y-2.5">
+                  <h3 className="text-xs font-black text-pink-950 px-1">تجارب الذكاء الاصطناعي والمكافآت الملكية 👑</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    
+                    {/* AI Beauty Advisor */}
+                    {isFeatureEnabled('aiBeautyConsultant') && (
+                      <button
+                        onClick={() => { triggerMediumHaptic(); setActiveFeatureView('beauty'); }}
+                        className="bg-gradient-to-br from-pink-800 to-rose-950 hover:to-pink-900 text-white rounded-[2rem] p-4 text-right relative overflow-hidden shadow-sm active:scale-95 transition-all cursor-pointer h-28 flex flex-col justify-between group"
+                      >
+                        <div className="absolute -top-4 -left-4 w-12 h-12 bg-pink-400/20 rounded-full blur-xl group-hover:scale-125 transition-transform" />
+                        <div className="bg-pink-500/20 p-2 rounded-xl w-fit self-start border border-pink-500/25">
+                          <Sparkles className="w-4 h-4 text-pink-300 animate-pulse" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-[11px] font-black leading-snug">مستشارة التجميل 💄</h4>
+                          <p className="text-[8px] text-pink-200/80 font-bold leading-normal">روتين ونصائح مخصصة لبشرتكِ بالذكاء الاصطناعي</p>
+                        </div>
+                      </button>
+                    )}
+
+                    {/* Daily Rewards Wheel */}
+                    {isFeatureEnabled('dailyRewardWheel') && (
+                      <button
+                        onClick={() => { triggerMediumHaptic(); setActiveFeatureView('wheel'); }}
+                        className="bg-gradient-to-br from-amber-500 to-yellow-600 hover:to-amber-600 text-white rounded-[2rem] p-4 text-right relative overflow-hidden shadow-sm active:scale-95 transition-all cursor-pointer h-28 flex flex-col justify-between group"
+                      >
+                        <div className="absolute -top-4 -left-4 w-12 h-12 bg-white/20 rounded-full blur-xl group-hover:scale-125 transition-transform" />
+                        <div className="bg-white/20 p-2 rounded-xl w-fit self-start border border-white/20">
+                          <Gift className="w-4 h-4 text-yellow-100" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <h4 className="text-[11px] font-black leading-snug">عجلة الهدايا اليومية 🎡</h4>
+                          <p className="text-[8px] text-yellow-100/80 font-bold leading-normal">أديري العجلة واربحي كوبونات ونقاطاً فورية</p>
+                        </div>
+                      </button>
+                    )}
+
+                  </div>
                 </div>
               )}
 
@@ -2278,25 +2325,63 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
             </motion.div>
           </div>
         )}
+
+        {/* Daily Reward Wheel Modal Overlay */}
+        {activeFeatureView === 'wheel' && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-md max-h-[90vh] overflow-y-auto no-scrollbar rounded-[2.5rem]"
+            >
+              <button
+                onClick={() => { triggerLightHaptic(); setActiveFeatureView(null); }}
+                className="absolute top-4 right-4 text-gray-400 hover:text-pink-600 bg-white/85 hover:bg-white rounded-full p-2 transition-all cursor-pointer z-10 shadow-sm"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <DailyRewardWheel />
+            </motion.div>
+          </div>
+        )}
+
+        {/* AI Beauty Consultant Modal Overlay */}
+        {activeFeatureView === 'beauty' && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto no-scrollbar rounded-[2.5rem]"
+            >
+              <button
+                onClick={() => { triggerLightHaptic(); setActiveFeatureView(null); }}
+                className="absolute top-4 right-4 text-gray-400 hover:text-pink-600 bg-white/85 hover:bg-white rounded-full p-2 transition-all cursor-pointer z-10 shadow-sm"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <AIBeautyConsultant />
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       {/* 5. GORGEOUS PIXAR FEMININE BOTTOM TAB BAR */}
       <nav className="absolute bottom-0 left-0 right-0 h-18 bg-white/95 backdrop-blur-md border-t border-pink-100/35 shadow-[0_-8px_30px_rgba(219,39,119,0.06)] flex justify-around items-center px-1 z-40">
         
         {/* Home */}
-        {isLoggedIn && (
-          <button
-            onClick={() => { triggerLightHaptic(); setActiveMainTab('home'); }}
-            className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-              activeMainTab === 'home' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-            }`}
-          >
-            <div className={`p-1 px-3.5 rounded-full transition-all ${activeMainTab === 'home' ? 'bg-pink-50' : ''}`}>
-              <HomeIcon className="w-4.5 h-4.5" />
-            </div>
-            <span className="text-[9px] font-black">الرئيسية</span>
-          </button>
-        )}
+        <button
+          onClick={() => { triggerLightHaptic(); setActiveMainTab('home'); }}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+            activeMainTab === 'home' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
+          }`}
+        >
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeMainTab === 'home' ? 'bg-pink-50' : ''}`}>
+            <HomeIcon className="w-4.5 h-4.5" />
+          </div>
+          <span className="text-[9px] font-black">الرئيسية</span>
+        </button>
 
         {/* Shop */}
         <button
@@ -2312,19 +2397,17 @@ export default function CustomerPortal({ onSwitchToAdmin, showAdminPasscode }: C
         </button>
 
         {/* Orders & Invoices */}
-        {isLoggedIn && (
-          <button
-            onClick={() => { triggerLightHaptic(); setActiveMainTab('orders'); }}
-            className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-              activeMainTab === 'orders' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
-            }`}
-          >
-            <div className={`p-1 px-3.5 rounded-full transition-all ${activeMainTab === 'orders' ? 'bg-pink-50' : ''}`}>
-              <Clock className="w-4.5 h-4.5" />
-            </div>
-            <span className="text-[9px] font-black">طلباتي</span>
-          </button>
-        )}
+        <button
+          onClick={() => { triggerLightHaptic(); setActiveMainTab('orders'); }}
+          className={`flex flex-col items-center gap-1 transition-all duration-300 ${
+            activeMainTab === 'orders' ? 'text-pink-700 scale-105 font-bold' : 'text-gray-400 hover:text-pink-700'
+          }`}
+        >
+          <div className={`p-1 px-3.5 rounded-full transition-all ${activeMainTab === 'orders' ? 'bg-pink-50' : ''}`}>
+            <Clock className="w-4.5 h-4.5" />
+          </div>
+          <span className="text-[9px] font-black">طلباتي</span>
+        </button>
 
         {/* Wishlist */}
         {isLoggedIn && (

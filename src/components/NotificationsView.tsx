@@ -110,6 +110,7 @@ export default function NotificationsView() {
                   const newStatus = 'في الطريق';
                   await updateShipmentStatus(firstShipment.id, newStatus);
                   await addNotification({
+                    notificationId: 'ship_ontheway_' + firstShipment.id,
                     type: 'shipment',
                     title: '🚚 شحنتكِ في الطريق!',
                     content: `الشحنة رقم ${firstShipment.trackingNumber} من ${firstShipment.origin} تحركت الآن وهي في الطريق إليكِ!`,
@@ -141,6 +142,7 @@ export default function NotificationsView() {
                   const newStatus = 'تم الاستلام';
                   await updateShipmentStatus(firstShipment.id, newStatus);
                   await addNotification({
+                    notificationId: 'ship_delivered_' + firstShipment.id,
                     type: 'shipment',
                     title: '🎉 تم الاستلام بنجاح!',
                     content: `تم تسليم الشحنة رقم ${firstShipment.trackingNumber} بنجاح للزبون. شكراً لاختياركِ إيرامو!`,

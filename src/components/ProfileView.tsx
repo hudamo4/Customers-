@@ -4,6 +4,8 @@ import { DEFAULT_AVATAR } from '../utils/avatar';
 import { User, Phone, MapPin, Edit, Check, Star, Gift, ChevronLeft, LogOut, Camera, Shield, Wallet, Bell, AlertCircle, ShoppingBag, Globe, X, CreditCard, Lock, ShieldCheck, HelpCircle, ArrowLeft, CheckCircle, Database, Loader2, Upload, Award, Share2, Ticket, Link, Compass } from 'lucide-react';
 import { runFirestoreDiagnosticTest, DiagnosticResult, db, uploadFileToStorage } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import FacialAnalysis from './features/FacialAnalysis';
+import { triggerLightHaptic } from '../utils/haptics';
 
 const AVAILABLE_STORES = [
   {
@@ -257,6 +259,7 @@ export default function ProfileView() {
   const [showReferralModal, setShowReferralModal] = useState<boolean>(false);
   const [showTicketsModal, setShowTicketsModal] = useState<boolean>(false);
   const [showPublicTrackingModal, setShowPublicTrackingModal] = useState<boolean>(false);
+  const [showFacialAnalysisModal, setShowFacialAnalysisModal] = useState<boolean>(false);
 
   React.useEffect(() => {
     if (profile) {
@@ -643,6 +646,19 @@ export default function ProfileView() {
             </div>
             <span className="text-[9px] bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded-full animate-pulse">
               العبِ الآن! 🎁
+            </span>
+          </div>
+
+          <div 
+            onClick={() => { triggerLightHaptic(); setShowFacialAnalysisModal(true); }}
+            className="flex items-center justify-between p-5 hover:bg-pink-50/20 cursor-pointer group transition-colors animate-fade-in"
+          >
+            <div className="flex items-center gap-4">
+              <Camera className="w-5 h-5 text-amber-600 animate-pulse" />
+              <span className="text-xs font-bold text-amber-900">التحليل الهندسي المباشر للوجه (جديد) 🧬✨</span>
+            </div>
+            <span className="text-[9px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full">
+              نسبة Φ الذهبية
             </span>
           </div>
 
@@ -1623,6 +1639,11 @@ export default function ProfileView() {
         </div>
       )}
 
+      {/* 4. Facial Analysis Modal */}
+      {showFacialAnalysisModal && (
+        <FacialAnalysis onClose={() => setShowFacialAnalysisModal(false)} />
+      )}
+
       {/* 4. Support Tickets Modal */}
       {showTicketsModal && (
         <SupportTicketsModal 
@@ -1749,10 +1770,11 @@ export function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
     }, 5000);
   };
 
+  const segmentColors = ['#fce7f3', '#fef3c7', '#fbcfe8', '#fffbeb', '#fdf2f8', '#fde68a'];
   const conicParts = PRIZES.map((_, idx) => {
     const percentStart = ((idx / PRIZES.length) * 100).toFixed(1);
     const percentEnd = (((idx + 1) / PRIZES.length) * 100).toFixed(1);
-    const color = idx % 2 === 0 ? '#fff1f2' : '#ffffff';
+    const color = segmentColors[idx % segmentColors.length];
     return `${color} ${percentStart}% ${percentEnd}%`;
   }).join(', ');
   const conicGradientStr = `conic-gradient(${conicParts})`;
@@ -1783,7 +1805,7 @@ export function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
           <div className="absolute inset-1.5 bg-pink-900/10 rounded-full blur-md translate-y-3 pointer-events-none z-0" />
 
           {/* Golden metallic 3D bezel outer rim */}
-          <div className="absolute inset-0 rounded-full border-[8px] border-amber-400 bg-gradient-to-tr from-amber-500 via-yellow-200 to-amber-600 shadow-[0_12px_24px_rgba(219,39,119,0.2),_inset_0_2px_6px_rgba(255,255,255,0.7),_inset_0_-2px_6px_rgba(0,0,0,0.2)] z-10 pointer-events-none">
+          <div className="absolute inset-0 rounded-full border-[8px] border-amber-400 bg-transparent shadow-[0_12px_24px_rgba(219,39,119,0.2),_inset_0_2px_6px_rgba(255,255,255,0.7),_inset_0_-2px_6px_rgba(0,0,0,0.2)] z-10 pointer-events-none">
             {/* Tiny retro lightbulbs around rim */}
             {Array.from({ length: 12 }).map((_, i) => {
               const angle = (i * 30 * Math.PI) / 180;
@@ -1818,14 +1840,14 @@ export function SpinWheelModal({ onClose, points, onWin }: SpinWheelProps) {
             className="w-[240px] h-[240px] rounded-full border-2 border-white/60 shadow-inner relative overflow-hidden flex items-center justify-center z-0"
           >
             {PRIZES.map((prize, index) => {
-              const angle = (360 / PRIZES.length) * index;
+              const angle = (360 / PRIZES.length) * index + (360 / PRIZES.length) / 2;
               return (
                 <div 
                   key={index}
                   style={{ transform: `rotate(${angle}deg)` }}
                   className="absolute top-0 right-0 left-0 bottom-0 origin-center flex items-start justify-center pt-8 pointer-events-none select-none"
                 >
-                  <span className="text-[9px] font-black text-pink-900 text-center tracking-tight whitespace-nowrap block" style={{ transform: 'rotate(90deg)' }}>
+                  <span className="text-[10.5px] font-black text-[#2d0615] text-center tracking-tight whitespace-nowrap block" style={{ transform: 'rotate(90deg)' }}>
                     {prize.label}
                   </span>
                 </div>

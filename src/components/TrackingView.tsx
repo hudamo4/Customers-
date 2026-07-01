@@ -25,7 +25,7 @@ const itemVariants = {
       damping: 15
     }
   }
-};
+} as const;
 
 export default function TrackingView() {
   const { shipments, selectedShipmentId, setSelectedShipmentId, deleteShipment, customizations, profile } = useApp();

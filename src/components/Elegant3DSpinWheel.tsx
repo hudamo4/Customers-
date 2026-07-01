@@ -13,12 +13,12 @@ export default function Elegant3DSpinWheel({ onWin, isSpinning, setIsSpinning }:
   const [lightsBlink, setLightsBlink] = useState(false);
 
   const PRIZES = [
-    { text: 'خصم ١٠K 🎁', color: '#ffb3c1', textColor: '#590d22' },
-    { text: '١٥٠ نقطة ⭐️', color: '#ffe5ec', textColor: '#590d22' },
-    { text: 'عينة عطر 🌸', color: '#ff85a1', textColor: '#ffffff' },
-    { text: 'شحن مجاني ✨', color: '#f7cad0', textColor: '#590d22' },
-    { text: 'هدية لطيفة 💖', color: '#f9bec7', textColor: '#590d22' },
-    { text: 'خصم ٢٠% 🏷️', color: '#ff7096', textColor: '#ffffff' }
+    { text: 'خصم ١٠K 🎁', color: '#fce7f3', textColor: '#2d0615' },
+    { text: '١٥٠ نقطة ⭐️', color: '#fef3c7', textColor: '#2d0615' },
+    { text: 'عينة عطر 🌸', color: '#fbcfe8', textColor: '#2d0615' },
+    { text: 'شحن مجاني ✨', color: '#fffbeb', textColor: '#2d0615' },
+    { text: 'هدية لطيفة 💖', color: '#fdf2f8', textColor: '#2d0615' },
+    { text: 'خصم ٢٠% 🏷️', color: '#fde68a', textColor: '#2d0615' }
   ];
 
   // Outer blinking lights effect
@@ -154,7 +154,7 @@ export default function Elegant3DSpinWheel({ onWin, isSpinning, setIsSpinning }:
         <div className="absolute inset-2 bg-pink-900/15 rounded-full blur-xl translate-y-6 pointer-events-none z-0" />
 
         {/* Golden outer rim border structure (3D bezel) */}
-        <div className="absolute inset-0 rounded-full border-[10px] border-amber-400 bg-gradient-to-tr from-amber-500 via-yellow-200 to-amber-600 shadow-[0_16px_32px_rgba(219,39,119,0.25),_inset_0_4px_12px_rgba(255,255,255,0.7),_inset_0_-4px_12px_rgba(0,0,0,0.25)] z-10 pointer-events-none">
+        <div className="absolute inset-0 rounded-full border-[10px] border-amber-400 bg-transparent shadow-[0_16px_32px_rgba(219,39,119,0.25),_inset_0_4px_12px_rgba(255,255,255,0.7),_inset_0_-4px_12px_rgba(0,0,0,0.25)] z-10 pointer-events-none">
           {/* LED blinker lights embedded inside golden rim */}
           {Array.from({ length: 12 }).map((_, i) => {
             const angle = (i * 30 * Math.PI) / 180;
@@ -223,13 +223,13 @@ export default function Elegant3DSpinWheel({ onWin, isSpinning, setIsSpinning }:
                   {/* Text Label Rotated towards Center */}
                   <g transform={`rotate(${angle} ${cx} ${cy})`}>
                     <text 
-                      x={cx + 50} 
+                      x={cx + 62} 
                       y={cy + 4} 
                       textAnchor="middle" 
                       fill={prize.textColor} 
-                      fontSize="9" 
-                      fontWeight="900"
-                      transform={`rotate(180 ${cx + 50} ${cy})`}
+                      fontSize="11" 
+                      fontWeight="950"
+                      className="font-black select-none"
                     >
                       {prize.text}
                     </text>

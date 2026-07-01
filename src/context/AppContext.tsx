@@ -647,6 +647,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [user, profile?.role]);
 
+  // Real-time listener for the features collection
+  useEffect(() => {
+    const unsubscribeFeatures = onSnapshot(collection(db, 'features'), (snapshot) => {
+      const feats: Record<string, boolean> = {};
+      snapshot.forEach(docSnap => {
+        feats[docSnap.id] = docSnap.data().enabled;
+      });
+      if (Object.keys(feats).length > 0) {
+        setCustomizations(prev => ({
+          ...prev,
+          features: {
+            ...prev.features,
+            ...feats
+          }
+        }));
+      }
+    }, (error) => {
+      console.warn("Firestore Features real-time sync failed:", error.message);
+    });
+    return () => unsubscribeFeatures();
+  }, []);
+
   const updateProfile = async (
     name: string,
     phone: string,

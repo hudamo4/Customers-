@@ -29,7 +29,7 @@ const itemVariants = {
       damping: 15
     }
   }
-};
+} as const;
 
 interface InvoiceRatingFormProps {
   invoiceId: string;

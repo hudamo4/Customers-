@@ -717,7 +717,7 @@ export default function ManagerInvoices() {
                           <div className="grid grid-cols-2 gap-1.5">
                             {presetProductsToUse.map((preset, pIdx) => (
                               <button
-                                key={preset.id || pIdx}
+                                key={preset.name + '_' + pIdx}
                                 type="button"
                                 onClick={() => handleSelectPreset(index, preset)}
                                 className="bg-white hover:border-pink-300 p-1.5 rounded-lg border border-gray-100 flex items-center gap-1.5 text-right transition-all cursor-pointer"

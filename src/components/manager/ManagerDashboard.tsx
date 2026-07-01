@@ -239,7 +239,7 @@ export default function ManagerDashboard({
       csvContent += "رقم الفاتورة,اسم العميلة,المتجر,المبلغ الإجمالي,التاريخ,حالة الدفع\n";
       
       invoices.forEach(inv => {
-        csvContent += `"${inv.invoiceId || inv.id}","${inv.name}","${inv.store || 'غير محدد'}","${inv.amount}","${inv.date}","${inv.status === 'Paid' ? 'مدفوعة' : 'قيد الانتظار'}"\n`;
+        csvContent += `"${inv.invoiceId || inv.id}","${inv.customerName || 'الزبونة الكريمة'}","${inv.store || 'غير محدد'}","${inv.amount}","${inv.date}","${inv.status === 'Paid' ? 'مدفوعة' : 'قيد الانتظار'}"\n`;
       });
       
       const encodedUri = encodeURI(csvContent);

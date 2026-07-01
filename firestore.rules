@@ -47,5 +47,17 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    match /features/{document} {
+      allow read, write: if true;
+    }
+
+    match /daily_rewards/{document} {
+      allow read, write: if true;
+    }
+
+    match /ai_beauty_kb/{document} {
+      allow read, write: if true;
+    }
   }
 }

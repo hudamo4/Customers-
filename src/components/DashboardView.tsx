@@ -597,7 +597,7 @@ export default function DashboardView() {
 
               <div className="flex justify-between items-center pt-2.5 border-t border-white/15">
                 <div className="text-[9px] font-mono text-pink-50/70 tracking-wider">
-                  **** **** **** {profile?.id?.slice(-4) || '3994'}
+                  **** **** **** {profile?.uid?.slice(-4) || '3994'}
                 </div>
                 <button
                   onClick={() => {
